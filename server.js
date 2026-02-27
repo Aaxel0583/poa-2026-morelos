@@ -10,7 +10,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ---> CAMBIO 1: Decirle al servidor que sirva los archivos HTML de la carpeta 'public'
+// Decirle al servidor que sirva los archivos HTML de la carpeta 'public'
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Configuración de almacenamiento (Carpeta uploads)
@@ -27,7 +27,6 @@ const upload = multer({ storage: storage });
 app.use('/uploads', express.static('uploads'));
 
 // 2. CONEXIÓN A BASE DE DATOS
-// ---> CAMBIO 2: Hacer que la Base de Datos soporte tanto internet (process.env.DATABASE_URL) como tu Localhost.
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL || 'postgresql://postgres:admin@localhost:5432/poa_db',
   ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
@@ -35,9 +34,9 @@ const pool = new Pool({
 
 // 3. RUTAS DEL SISTEMA
 
-// Ruta de prueba (Opcional, ahora la página principal será index.html)
-app.get('/test', (req, res) => {
-  res.send('✅ Servidor POA funcionando correctamente');
+// ---> AQUÍ ESTÁ EL CAMBIO: Redireccionar la entrada principal al Login <---
+app.get('/', (req, res) => {
+  res.redirect('/login.html');
 });
 
 // --- LOGIN ---
@@ -149,7 +148,7 @@ app.post('/api/reportar', upload.single('evidencia'), async (req, res) => {
             return res.status(400).json({ error: `Violación de límite. El avance total superaría el 100%. Te queda un máximo de ${100 - avanceAcumulado}% por reportar.` });
         }
 
-        // ---> CAMBIO 3: Para que las URLs de las evidencias no digan "localhost" en internet
+        // Para que las URLs de las evidencias no digan "localhost" en internet
         const serverURL = process.env.RENDER_EXTERNAL_URL || process.env.RAILWAY_STATIC_URL || process.env.HOST_URL || `http://localhost:${port}`;
         const url_evidencia = req.file ? `${serverURL}/uploads/${req.file.filename}` : null;
 
@@ -181,8 +180,7 @@ app.post('/api/retroalimentar', async (req, res) => {
 });
 
 // 4. ENCENDER SERVIDOR
-// ---> CAMBIO 4: Usar el puerto dinámico de la nube o el 3000 local
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
-  console.log(`🚀 Servidor POA corriendo en puerto ${port}`);
+  console.log(` Servidor POA corriendo en puerto ${port}`);
 });
