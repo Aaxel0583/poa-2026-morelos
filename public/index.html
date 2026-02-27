@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POA 2026 - Tablero de Control</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background-color: #f4f6f8; margin: 0; padding: 20px; }
+        .header { background-color: #2c3e50; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #ecf0f1; }
+        .progress-bar { height: 10px; background-color: #eee; border-radius: 5px; overflow: hidden; }
+        .progress-fill { height: 100%; background-color: #27ae60; }
+        
+        h2 { margin-top: 0; color: #333; }
+        
+        /* Estilos para botones */
+        .btn-logout { background:#333; color:white; padding:5px 10px; border:none; cursor:pointer; border-radius: 4px; }
+        .btn-evidencia { background-color: #e74c3c; color: white; padding: 5px 10px; text-decoration: none; border-radius: 4px; font-size: 0.9em; display: inline-block; margin-right: 5px; margin-bottom: 5px; }
+        .btn-feedback { background: orange; color: white; border: none; padding: 6px 10px; cursor: pointer; border-radius: 4px; font-size: 0.9em; margin-right: 5px; margin-bottom: 5px;}
+        .btn-historial { background-color: #8e44ad; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.9em; transition: 0.3s; margin-bottom: 5px;}
+        .btn-historial:hover { background-color: #732d91; }
+    </style>
+</head>
+<body>
+    <script>
+        const usuarioGuardado = localStorage.getItem('usuarioPOA');
+        if (!usuarioGuardado) {
+            window.location.href = 'login.html';
+        } else {
+            const usuario = JSON.parse(usuarioGuardado);
+            if (usuario.rol !== 'ADMIN') {
+                window.location.href = 'login.html';
+            }
+        }
+
+        function cerrarSesion() {
+            localStorage.removeItem('usuarioPOA');
+            window.location.href = 'login.html';
+        }
+    </script>
+
+    <div style="text-align: right; padding: 15px; background-color: white; border-bottom: 1px solid #ddd; margin: -20px -20px 20px -20px;">
+        <a href="presidencia.html" style="background-color: #2c3e50; color: white; padding: 8px 15px; text-decoration: none; border-radius: 5px; font-weight: bold; margin-right: 10px;">
+            📈 Ver Resumen Presidencia
+        </a>
+        <button onclick="cerrarSesion()" class="btn-logout" style="background:#c0392b; color:white; padding:8px 15px; border:none; border-radius:5px; font-weight:bold; cursor:pointer;">
+            Cerrar Sesión
+        </button>
+    </div>
+
+    <div class="header">
+        <h1>📊 Sistema de Seguimiento POA 2026</h1>
+        <p>H. Ayuntamiento de Morelos, Zacatecas - Panel de Administración</p>
+    </div>
+
+    <div class="container">
+        <div class="card">
+            <h2>Avance Físico por Proyecto</h2>
+            <canvas id="graficaAvance"></canvas>
+        </div>
+
+        <div class="card">
+            <h2>Detalle Financiero y Físico</h2>
+            <table id="tablaDatos">
+                <thead>
+                    <tr>
+                        <th>Proyecto</th>
+                        <th>Avance Físico</th>
+                        <th>Presupuesto Gastado</th>
+                        <th style="text-align: center;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        function darFeedback(correoUsuario, proyectoNombre) {
+            const asunto = encodeURIComponent(`Revisión de Avance - POA: ${proyectoNombre}`);
+            const cuerpo = encodeURIComponent(`Hola,\n\nRevisando el reporte del proyecto "${proyectoNombre}", notamos un detalle que requiere tu atención:\n\n[Escribe aquí tu observación...]\n\nSaludos,\nAdministración POA.`);
+            window.location.href = `mailto:${correoUsuario}?subject=${asunto}&body=${cuerpo}`;
+        }
+
+        async function cargarDatos() {
+            try {
+                // AQUI SE QUITÓ EL LOCALHOST
+                const respuesta = await fetch('/api/tablero');
+                const datos = await respuesta.json();
+
+                // 1. Renderizar Gráfica
+                const nombres = datos.map(d => d.codigo_proyecto);
+                const avances = datos.map(d => d.porcentaje_avance_fisico);
+
+                const ctx = document.getElementById('graficaAvance').getContext('2d');
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: nombres,
+                        datasets: [{
+                            label: '% Avance Físico Acumulado',
+                            data: avances,
+                            backgroundColor: '#3498db',
+                            borderColor: '#2980b9',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: { scales: { y: { beginAtZero: true, max: 100 } } }
+                });
+
+                // 2. Renderizar Tabla
+                const tabla = document.querySelector('#tablaDatos tbody');
+                tabla.innerHTML = ''; 
+
+                datos.forEach(dato => {
+                    // Evidencia (Última)
+                    let botonEvidencia = '';
+                    if (dato.ultima_evidencia) {
+                        botonEvidencia = `<a href="${dato.ultima_evidencia}" target="_blank" class="btn-evidencia">📄 Evidencia</a>`;
+                    }
+
+                    // Correo Feedback
+                    let correo = dato.correo_contacto || 'sin_correo@morelos.gob.mx';
+
+                    const fila = `
+                        <tr>
+                            <td>
+                                <strong>${dato.codigo_proyecto}</strong><br>
+                                <small>${dato.nombre_proyecto}</small>
+                            </td>
+                            <td>
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span>${dato.porcentaje_avance_fisico}%</span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: ${dato.porcentaje_avance_fisico}%"></div>
+                                </div>
+                            </td>
+                            <td>$${parseFloat(dato.gastado_total).toLocaleString('es-MX')}</td>
+                            <td style="text-align: center;">
+                                ${botonEvidencia}
+                                <button onclick="darFeedback('${correo}', '${dato.nombre_proyecto}')" class="btn-feedback">✏️ Duda</button>
+                                <button onclick="verHistorial('${dato.codigo_proyecto}', '${dato.nombre_proyecto}')" class="btn-historial">🕒 Historial</button>
+                            </td>
+                        </tr>
+                    `;
+                    tabla.innerHTML += fila;
+                });
+
+            } catch (error) {
+                console.error("Error cargando datos:", error);
+                document.querySelector('#tablaDatos tbody').innerHTML = '<tr><td colspan="4" style="text-align:center; color:red;">Error de conexión con el servidor. Verifica tu internet.</td></tr>';
+            }
+        }
+
+        cargarDatos();
+    </script>
+
+    <div id="modalHistorial" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:1000; justify-content:center; align-items:center;">
+        <div style="background:white; width:90%; max-width:700px; max-height:80vh; border-radius:10px; padding:20px; overflow-y:auto; position:relative;">
+            <button onclick="document.getElementById('modalHistorial').style.display='none'" style="position:absolute; top:15px; right:15px; background:red; color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer;">Cerrar ✖</button>
+            
+            <h2 id="tituloModal" style="color:#2c3e50; margin-top:0; border-bottom:2px solid #eee; padding-bottom:10px;">Historial de Reportes</h2>
+            
+            <div id="contenedorHistorial" style="margin-top:20px;">
+                </div>
+        </div>
+    </div>
+
+    <script>
+        async function verHistorial(codigoProyecto, nombreProyecto) {
+            
+            document.getElementById('tituloModal').innerText = "Historial: " + codigoProyecto;
+            const contenedor = document.getElementById('contenedorHistorial');
+            contenedor.innerHTML = "<p style='text-align:center; color:#555;'>⏳ Obteniendo registros...</p>";
+            document.getElementById('modalHistorial').style.display = 'flex';
+
+            try {
+                // AQUI SE QUITÓ EL LOCALHOST
+                const resp = await fetch('/api/historial/' + codigoProyecto);
+                
+                if (!resp.ok) {
+                    throw new Error("El servidor no respondió correctamente");
+                }
+                
+                const historial = await resp.json();
+
+                if(historial.length === 0) {
+                    contenedor.innerHTML = "<p style='text-align:center;'>Aún no hay reportes de avance para este proyecto.</p>";
+                    return;
+                }
+
+                let html = "";
+                historial.forEach(rep => {
+                    const fecha = rep.fecha_exacta ? rep.fecha_exacta : "Registro Acumulado Histórico";
+                    
+                    const btnPDF = rep.url_evidencia_pdf 
+                        ? `<a href="${rep.url_evidencia_pdf}" target="_blank" style="background:#3498db; color:white; padding:5px 10px; border-radius:3px; text-decoration:none; font-size:0.9em;">📄 Ver PDF Adjunto</a>` 
+                        : '<span style="color:#999; font-size:0.9em; font-style:italic;">No se adjuntó archivo</span>';
+
+                    html += `
+                        <div style="border-left: 4px solid #2ecc71; background:#f4f6f8; margin-bottom:15px; padding:15px; border-radius:0 5px 5px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                                <strong style="color:#2c3e50;">🗓️ Enviado el: ${fecha}</strong>
+                                <span style="background:#e67e22; color:white; padding:3px 8px; border-radius:12px; font-size:0.8em; font-weight:bold;">Mes reportado: ${rep.mes_reportado}</span>
+                            </div>
+                            
+                            <p style="margin:5px 0; color:#555; font-size:0.9em;">
+                                <strong>👤 Responsable:</strong> ${rep.nombre_encargado || 'No especificado'} <br>
+                                <strong>📧 Correo:</strong> <a href="mailto:${rep.correo_contacto}">${rep.correo_contacto || 'N/A'}</a>
+                            </p>
+                            
+                            <div style="display:flex; justify-content:space-around; background:white; padding:10px; border-radius:5px; margin:10px 0; border: 1px solid #ddd;">
+                                <div style="text-align:center;">
+                                    <span style="font-size:1.2em;">📈</span><br>
+                                    <b>+${rep.avance_fisico_periodo}%</b><br>
+                                    <small style="color:#7f8c8d;">Avance</small>
+                                </div>
+                                <div style="border-left: 1px solid #eee;"></div>
+                                <div style="text-align:center;">
+                                    <span style="font-size:1.2em;">💰</span><br>
+                                    <b style="color:#c0392b;">$${parseFloat(rep.avance_financiero_periodo).toLocaleString('es-MX')}</b><br>
+                                    <small style="color:#7f8c8d;">Gasto del mes</small>
+                                </div>
+                            </div>
+
+                            <p style="margin:10px 0; font-size:0.95em; line-height:1.4;"><strong>📝 Observaciones:</strong> ${rep.observaciones || '<i>Sin observaciones adicionales.</i>'}</p>
+                            
+                            <div style="text-align:right; margin-top:10px;">
+                                ${btnPDF}
+                            </div>
+                        </div>
+                    `;
+                });
+                contenedor.innerHTML = html;
+
+            } catch (error) {
+                console.error(error);
+                contenedor.innerHTML = "<p style='color:red; text-align:center;'>Error al cargar el historial. Revisa tu conexión.</p>";
+            }
+        }
+    </script>
+</body>
+</html>

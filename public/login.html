@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acceso al POA 2026</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background-color: #2c3e50; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .login-card { background: white; padding: 40px; border-radius: 10px; width: 300px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        h2 { color: #333; margin-bottom: 20px; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background-color: #e74c3c; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; }
+        button:hover { background-color: #c0392b; }
+        .escudo { width: 80px; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <div style="font-size: 50px;">🏛️</div> 
+        <h2>Sistema POA</h2>
+        <input type="email" id="email" placeholder="Correo Institucional" value="admin@morelos.gob.mx">
+        <input type="password" id="password" placeholder="Contraseña" value="admin">
+        <button onclick="iniciarSesion()">Ingresar</button>
+        <p id="errorMsg" style="color: red; display: none;">Datos incorrectos</p>
+    </div>
+
+    <script>
+        async function iniciarSesion() {
+            // 1. Obtener datos
+            const emailInput = document.getElementById('email');
+            const passInput = document.getElementById('password');
+            const errorMsg = document.getElementById('errorMsg');
+            
+            // Limpiamos mensajes previos
+            errorMsg.style.display = 'none';
+
+            if (!emailInput.value || !passInput.value) {
+                alert("⚠️ Por favor escribe correo y contraseña");
+                return;
+            }
+
+            try {
+                console.log("Intentando conectar con el servidor...");
+
+                // 2. Intentar conectar (AJUSTADO PARA INTERNET)
+                const resp = await fetch('/api/login', { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: emailInput.value, password: passInput.value })
+                });
+
+                // 3. Verificar si el servidor contestó
+                if (!resp.ok) {
+                    throw new Error(`Error del servidor: ${resp.status}`);
+                }
+
+                const data = await resp.json();
+
+                if (data.exito) {
+                    // ¡Login exitoso! Guardamos usuario
+                    localStorage.setItem('usuarioPOA', JSON.stringify(data.usuario));
+                    
+                    // REDIRECCIÓN INTELIGENTE
+                    if (data.usuario.rol === 'ADMIN') {
+                        window.location.href = 'presidencia.html'; // El Jefe va a la gráfica general
+                    } else {
+                        window.location.href = 'captura.html'; // El trabajador va directo a trabajar
+                    }
+                } else {
+                    // Login fallido (contraseña mal)
+                    errorMsg.innerText = "❌ " + (data.mensaje || "Datos incorrectos");
+                    errorMsg.style.display = 'block';
+                }
+
+            } catch (error) {
+                console.error(error);
+                alert("🚨 ERROR DE CONEXIÓN: \n\nNo se pudo contactar al servidor. Inténtalo de nuevo más tarde.\n\nDetalle: " + error.message);
+            }
+        }
+    </script>
+</body>
+</html>

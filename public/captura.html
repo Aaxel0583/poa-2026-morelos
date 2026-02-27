@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Reportar Avance - POA 2026</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background-color: #f4f6f8; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px;}
+        .card { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 600px; }
+        input, select, textarea { width: 100%; padding: 10px; margin: 8px 0 15px 0; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
+        button.primary { width: 100%; background-color: #27ae60; color: white; padding: 12px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; margin-top: 10px;}
+        button.primary:hover { background-color: #219150; }
+        .presupuesto-box { background-color: #e8f8f5; border-left: 5px solid #1abc9c; padding: 15px; margin-bottom: 15px; display: none; line-height: 1.6; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2 style="text-align: center; color: #2c3e50; margin-top: 0;">📝 Envío de Avance POA</h2>
+        <p style="text-align: center; color: #7f8c8d; font-size: 0.9em;">Por favor, llena tus datos para registrar el avance mensual.</p>
+        
+        <form id="formularioPOA">
+            <label>👤 Nombre del Encargado / Responsable:</label>
+            <input type="text" id="encargado" placeholder="Ej. Juan Pérez - Director" required>
+
+            <label>📧 Correo Electrónico Institucional:</label>
+            <input type="email" id="correo" placeholder="ejemplo@morelos.gob.mx" required>
+
+            <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+
+            <label>🏢 Selecciona tu Departamento:</label>
+            <select id="departamento" onchange="cargarProyectos()" required>
+                <option value="">-- Cargando departamentos... --</option>
+            </select>
+
+            <label>📋 Proyecto a Reportar:</label>
+            <select id="actividad" onchange="mostrarPresupuesto()" required disabled>
+                <option value="">-- Primero selecciona un departamento --</option>
+            </select>
+
+            <div id="cajaPresupuesto" class="presupuesto-box">
+                <strong>💰 Presupuesto Autorizado Anual:</strong> $<span id="lblAutorizado">0</span><br>
+                <strong>💸 Dinero Gastado Hasta Ahora:</strong> $<span id="lblGastado">0</span><br>
+                <strong style="color: #c0392b; margin-top: 5px; display: inline-block;">📈 Avance Físico Acumulado: <span id="lblFisico">0</span>%</strong>
+            </div>
+
+            <select id="mes">
+                <option value="1">Enero</option>
+                <option value="2">Febrero</option>
+                <option value="3">Marzo</option>
+                <option value="4">Abril</option>
+                <option value="5">Mayo</option>
+                <option value="6">Junio</option>
+                <option value="7">Julio</option>
+                <option value="8">Agosto</option>
+                <option value="9">Septiembre</option>
+                <option value="10">Octubre</option>
+                <option value="11">Noviembre</option>
+                <option value="12">Diciembre</option>
+            </select>
+
+            <label>📈 Avance Físico de ESTE MES (Sólo lo avanzado ahora):</label>
+            <input type="number" id="fisico" placeholder="Ej. 15" required>
+
+            <label>💰 Dinero Gastado ESTE MES ($ MXN):</label>
+            <input type="number" step="0.01" id="financiero" placeholder="Ej. 5000.00" required>
+
+            <label>📝 Observaciones / Justificación:</label>
+            <textarea id="obs" placeholder="Describe brevemente los logros o si te pasaste del presupuesto, explica por qué..."></textarea>
+
+            <label>📸 Evidencia (Foto o PDF):</label>
+            <input type="file" id="archivoEvidencia" accept=".pdf, .jpg, .png">
+
+            <button type="submit" class="primary">Enviar Reporte Oficial</button>
+        </form>
+    </div>
+
+    <script>
+        let proyectosActuales = [];
+
+        // 1. Cargar departamentos al iniciar (Ajustado para producción: /api/departamentos)
+        async function cargarDepartamentos() {
+            try {
+                const resp = await fetch('/api/departamentos');
+                const data = await resp.json();
+                const select = document.getElementById('departamento');
+                select.innerHTML = '<option value="">-- Selecciona el departamento --</option>';
+                data.forEach(d => {
+                    select.innerHTML += `<option value="${d.id_dependencia}">${d.nombre}</option>`;
+                });
+            } catch (error) {
+                console.error("Error al cargar departamentos:", error);
+            }
+        }
+        cargarDepartamentos();
+
+        // 2. Cargar proyectos cuando elige departamento (Ajustado para producción)
+        async function cargarProyectos() {
+            const idDep = document.getElementById('departamento').value;
+            const selectAct = document.getElementById('actividad');
+            document.getElementById('cajaPresupuesto').style.display = 'none';
+
+            if (!idDep) {
+                selectAct.innerHTML = '<option value="">-- Primero selecciona un departamento --</option>';
+                selectAct.disabled = true;
+                return;
+            }
+
+            selectAct.disabled = false;
+            selectAct.innerHTML = '<option value="">Cargando proyectos...</option>';
+            
+            try {
+                const resp = await fetch(`/api/actividades/${idDep}`);
+                proyectosActuales = await resp.json();
+                
+                selectAct.innerHTML = '<option value="">-- Selecciona tu proyecto --</option>';
+                proyectosActuales.forEach(p => {
+                    selectAct.innerHTML += `<option value="${p.id_actividad}">${p.codigo_proyecto} - ${p.nombre_proyecto}</option>`;
+                });
+            } catch (error) {
+                console.error("Error al cargar proyectos:", error);
+                selectAct.innerHTML = '<option value="">Error al cargar datos</option>';
+            }
+        }
+
+        // 3. Mostrar presupuesto, avance y candado de 100%
+        function mostrarPresupuesto() {
+            const idAct = document.getElementById('actividad').value;
+            const caja = document.getElementById('cajaPresupuesto');
+            const inputFisico = document.getElementById('fisico');
+            
+            if (!idAct) { caja.style.display = 'none'; return; }
+
+            const proyecto = proyectosActuales.find(p => p.id_actividad == idAct);
+            if (proyecto) {
+                // Mostrar dinero (Formateado con comas para que sea fácil de leer)
+                document.getElementById('lblAutorizado').innerText = parseFloat(proyecto.presupuesto_autorizado).toLocaleString('es-MX');
+                document.getElementById('lblGastado').innerText = parseFloat(proyecto.gastado).toLocaleString('es-MX');
+                
+                // CALCULAR CANDADO FÍSICO
+                const acumulado = parseFloat(proyecto.fisico_acumulado || 0);
+                const restante = 100 - acumulado;
+                
+                // Mostrar el porcentaje acumulado visualmente
+                document.getElementById('lblFisico').innerText = acumulado;
+                
+                inputFisico.max = restante;
+                inputFisico.placeholder = `Queda un ${restante}% disponible por reportar`;
+                
+                if(restante <= 0) {
+                    inputFisico.disabled = true;
+                    inputFisico.placeholder = "¡Este proyecto ya alcanzó el 100%!";
+                    inputFisico.value = "";
+                } else {
+                    inputFisico.disabled = false;
+                }
+                
+                caja.style.display = 'block';
+            }
+        }
+
+        // 4. Enviar (Ajustado para producción: /api/reportar)
+        document.getElementById('formularioPOA').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            // Validación Matemática Estricta
+            const inputFisico = document.getElementById('fisico');
+            const valorIngresado = parseFloat(inputFisico.value);
+            const maxPermitido = parseFloat(inputFisico.max);
+
+            if (valorIngresado > maxPermitido) {
+                alert(`❌ ERROR: No puedes reportar ${valorIngresado}%.\nEl máximo permitido para este proyecto es ${maxPermitido}%.`);
+                inputFisico.value = maxPermitido; 
+                inputFisico.focus();
+                return; 
+            }
+
+            if (!confirm("⚠️ ¿Estás seguro de que la información es correcta? Esta acción no se puede deshacer.")) return;
+
+            const formData = new FormData();
+            formData.append('encargado', document.getElementById('encargado').value);
+            formData.append('correo', document.getElementById('correo').value);
+            formData.append('id_actividad', document.getElementById('actividad').value);
+            formData.append('mes', document.getElementById('mes').value);
+            formData.append('avance_fisico', valorIngresado); 
+            formData.append('avance_financiero', document.getElementById('financiero').value);
+            formData.append('observaciones', document.getElementById('obs').value);
+            
+            const fileInput = document.getElementById('archivoEvidencia');
+            if (fileInput.files[0]) formData.append('evidencia', fileInput.files[0]);
+
+            try {
+                // AQUÍ QUITAMOS EL LOCALHOST
+                const resp = await fetch('/api/reportar', { method: 'POST', body: formData });
+                
+                if (resp.ok) {
+                    alert('✅ Reporte enviado con éxito al Sistema Central. Gracias.');
+                    window.location.reload(); 
+                } else { 
+                    const errorData = await resp.json();
+                    alert('❌ Error al guardar: ' + (errorData.error || 'Desconocido')); 
+                }
+            } catch (err) { alert('❌ Error de conexión con el servidor. Revisa tu internet.'); }
+        });
+    </script>
+</body>
+</html>
