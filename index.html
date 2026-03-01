@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POA 2026 - Tablero de Control</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background-color: #f4f6f8; margin: 0; padding: 20px; }
+        .header { background-color: #2c3e50; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #ecf0f1; }
+        .progress-bar { height: 10px; background-color: #eee; border-radius: 5px; overflow: hidden; }
+        .progress-fill { height: 100%; background-color: #27ae60; }
+        
+        h2 { margin-top: 0; color: #333; }
+        
+        /* --- NUEVOS ESTILOS PARA FILTROS --- */
+        .filtros-container {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+        .filtro-item { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 200px; }
+        .filtro-item label { font-weight: bold; font-size: 0.9em; color: #555; }
+        .filtro-item input, .filtro-item select {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        /* ---------------------------------- */
+
+        .btn-logout { background:#333; color:white; padding:5px 10px; border:none; cursor:pointer; border-radius: 4px; }
+        .btn-evidencia { background-color: #e74c3c; color: white; padding: 5px 10px; text-decoration: none; border-radius: 4px; font-size: 0.9em; display: inline-block; margin-right: 5px; margin-bottom: 5px; }
+        .btn-feedback { background: orange; color: white; border: none; padding: 6px 10px; cursor: pointer; border-radius: 4px; font-size: 0.9em; margin-right: 5px; margin-bottom: 5px;}
+        .btn-historial { background-color: #8e44ad; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.9em; transition: 0.3s; margin-bottom: 5px;}
+        .btn-historial:hover { background-color: #732d91; }
+    </style>
+</head>
+<body>
+    <script>
+        const usuarioGuardado = localStorage.getItem('usuarioPOA');
+        if (!usuarioGuardado) {
+            window.location.href = 'login.html';
+        } else {
+            const usuario = JSON.parse(usuarioGuardado);
+            if (usuario.rol !== 'ADMIN') {
+                window.location.href = 'login.html';
+            }
+        }
+
+        function cerrarSesion() {
+            localStorage.removeItem('usuarioPOA');
+            window.location.href = 'login.html';
+        }
+    </script>
+
+    <div style="text-align: right; padding: 15px; background-color: white; border-bottom: 1px solid #ddd; margin: -20px -20px 20px -20px;">
+        <a href="presidencia.html" style="background-color: #2c3e50; color: white; padding: 8px 15px; text-decoration: none; border-radius: 5px; font-weight: bold; margin-right: 10px;">
+            📈 Ver Resumen Presidencia
+        </a>
+        <button onclick="cerrarSesion()" class="btn-logout" style="background:#c0392b; color:white; padding:8px 15px; border:none; border-radius:5px; font-weight:bold; cursor:pointer;">
+            Cerrar Sesión
+        </button>
+    </div>
+
+    <div class="header">
+        <h1>📊 Sistema de Seguimiento POA 2026</h1>
+        <p>H. Ayuntamiento de Morelos, Zacatecas - Panel de Administración</p>
+    </div>
+
+    <div class="filtros-container">
+        <div class="filtro-item">
+            <label for="filtroDep">🏢 Filtrar por Departamento:</label>
+            <select id="filtroDep" onchange="aplicarFiltros()">
+                <option value="TODOS">-- Todos los Departamentos --</option>
+            </select>
+        </div>
+        <div class="filtro-item">
+            <label for="txtBuscar">🔍 Buscar Proyecto o Código:</label>
+            <input type="text" id="txtBuscar" placeholder="Ej: Bacheo, ALC-P01..." oninput="aplicarFiltros()">
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="card">
+            <h2>Avance Físico por Proyecto</h2>
+            <canvas id="graficaAvance"></canvas>
+        </div>
+
+        <div class="card">
+            <h2>Detalle Financiero y Físico</h2>
+            <table id="tablaDatos">
+                <thead>
+                    <tr>
+                        <th>Proyecto</th>
+                        <th>Avance Físico</th>
+                        <th>Presupuesto Gastado</th>
+                        <th style="text-align: center;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // Variables globales para manejar los datos
+        let todosLosDatos = [];
+        let chartInstance = null;
+
+        function darFeedback(correoUsuario, proyectoNombre) {
+            const asunto = encodeURIComponent(`Revisión de Avance - POA: ${proyectoNombre}`);
+            const cuerpo = encodeURIComponent(`Hola,\n\nRevisando el reporte del proyecto "${proyectoNombre}", notamos un detalle que requiere tu atención:\n\n[Escribe aquí tu observación...]\n\nSaludos,\nAdministración POA.`);
+            window.location.href = `mailto:${correoUsuario}?subject=${asunto}&body=${cuerpo}`;
+        }
+
+        // FUNCIÓN MAESTRA DE FILTRADO
+        function aplicarFiltros() {
+            const deptoSeleccionado = document.getElementById('filtroDep').value;
+            const textoBusqueda = document.getElementById('txtBuscar').value.toLowerCase();
+
+            // Filtrar la lista completa
+            const datosFiltrados = todosLosDatos.filter(d => {
+                // Filtro 1: Departamento (compara por el nombre del depto que viene en el JSON)
+                const coincideDepto = (deptoSeleccionado === 'TODOS' || d.nombre_departamento === deptoSeleccionado);
+                
+                // Filtro 2: Texto (busca en código y nombre del proyecto)
+                const coincideTexto = d.codigo_proyecto.toLowerCase().includes(textoBusqueda) || 
+                                     d.nombre_proyecto.toLowerCase().includes(textoBusqueda);
+                
+                return coincideDepto && coincideTexto;
+            });
+
+            // Actualizar Visuales
+            renderizarTabla(datosFiltrados);
+            renderizarGrafica(datosFiltrados);
+        }
+
+        async function cargarDatos() {
+            try {
+                // 1. Cargar Departamentos para el Select
+                const respDeptos = await fetch('/api/departamentos');
+                const deptos = await respDeptos.json();
+                const selectDep = document.getElementById('filtroDep');
+                deptos.forEach(dep => {
+                    let opt = document.createElement('option');
+                    opt.value = dep.nombre;
+                    opt.innerText = dep.nombre;
+                    selectDep.appendChild(opt);
+                });
+
+                // 2. Cargar Datos del Tablero
+                const respuesta = await fetch('/api/tablero');
+                todosLosDatos = await respuesta.json();
+
+                // Renderizar todo inicialmente
+                renderizarTabla(todosLosDatos);
+                renderizarGrafica(todosLosDatos);
+
+            } catch (error) {
+                console.error("Error cargando datos:", error);
+                document.querySelector('#tablaDatos tbody').innerHTML = '<tr><td colspan="4" style="text-align:center; color:red;">Error de conexión con el servidor.</td></tr>';
+            }
+        }
+
+        function renderizarTabla(datos) {
+            const tabla = document.querySelector('#tablaDatos tbody');
+            tabla.innerHTML = ''; 
+
+            if (datos.length === 0) {
+                tabla.innerHTML = '<tr><td colspan="4" style="text-align:center;">No se encontraron proyectos con esos criterios.</td></tr>';
+                return;
+            }
+
+            datos.forEach(dato => {
+                let botonEvidencia = dato.ultima_evidencia 
+                    ? `<a href="${dato.ultima_evidencia}" target="_blank" class="btn-evidencia">📄 Evidencia</a>` 
+                    : '';
+
+                let correo = dato.correo_contacto || 'sin_correo@morelos.gob.mx';
+
+                const fila = `
+                    <tr>
+                        <td>
+                            <strong>${dato.codigo_proyecto}</strong><br>
+                            <small>${dato.nombre_proyecto}</small><br>
+                            <em style="font-size:0.8em; color:#7f8c8d;">Dep: ${dato.nombre_departamento}</em>
+                        </td>
+                        <td>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>${dato.porcentaje_avance_fisico}%</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: ${dato.porcentaje_avance_fisico}%"></div>
+                            </div>
+                        </td>
+                        <td>$${parseFloat(dato.gastado_total).toLocaleString('es-MX')}</td>
+                        <td style="text-align: center;">
+                            ${botonEvidencia}
+                            <button onclick="darFeedback('${correo}', '${dato.nombre_proyecto}')" class="btn-feedback">✏️ Duda</button>
+                            <button onclick="verHistorial('${dato.codigo_proyecto}', '${dato.nombre_proyecto}')" class="btn-historial">🕒 Historial</button>
+                        </td>
+                    </tr>
+                `;
+                tabla.innerHTML += fila;
+            });
+        }
+
+        function renderizarGrafica(datos) {
+            const ctx = document.getElementById('graficaAvance').getContext('2d');
+            
+            // Si ya existe una gráfica, destruirla para crear la nueva con datos filtrados
+            if (chartInstance) { chartInstance.destroy(); }
+
+            const nombres = datos.map(d => d.codigo_proyecto);
+            const avances = datos.map(d => d.porcentaje_avance_fisico);
+
+            chartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: nombres,
+                    datasets: [{
+                        label: '% Avance Físico Acumulado',
+                        data: avances,
+                        backgroundColor: '#3498db',
+                        borderColor: '#2980b9',
+                        borderWidth: 1
+                    }]
+                },
+                options: { 
+                    scales: { y: { beginAtZero: true, max: 100 } },
+                    responsive: true
+                }
+            });
+        }
+
+        cargarDatos();
+    </script>
+
+    <div id="modalHistorial" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:1000; justify-content:center; align-items:center;">
+        <div style="background:white; width:90%; max-width:700px; max-height:80vh; border-radius:10px; padding:20px; overflow-y:auto; position:relative;">
+            <button onclick="document.getElementById('modalHistorial').style.display='none'" style="position:absolute; top:15px; right:15px; background:red; color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer;">Cerrar ✖</button>
+            <h2 id="tituloModal" style="color:#2c3e50; margin-top:0; border-bottom:2px solid #eee; padding-bottom:10px;">Historial de Reportes</h2>
+            <div id="contenedorHistorial" style="margin-top:20px;"></div>
+        </div>
+    </div>
+
+    <script>
+        async function verHistorial(codigoProyecto, nombreProyecto) {
+            document.getElementById('tituloModal').innerText = "Historial: " + codigoProyecto;
+            const contenedor = document.getElementById('contenedorHistorial');
+            contenedor.innerHTML = "<p style='text-align:center; color:#555;'>⏳ Obteniendo registros...</p>";
+            document.getElementById('modalHistorial').style.display = 'flex';
+
+            try {
+                const resp = await fetch('/api/historial/' + codigoProyecto);
+                if (!resp.ok) throw new Error("Error en servidor");
+                const historial = await resp.json();
+
+                if(historial.length === 0) {
+                    contenedor.innerHTML = "<p style='text-align:center;'>Aún no hay reportes de avance para este proyecto.</p>";
+                    return;
+                }
+
+                let html = "";
+                historial.forEach(rep => {
+                    const fecha = rep.fecha_exacta || "Registro Histórico";
+                    const btnPDF = rep.url_evidencia_pdf 
+                        ? `<a href="${rep.url_evidencia_pdf}" target="_blank" style="background:#3498db; color:white; padding:5px 10px; border-radius:3px; text-decoration:none; font-size:0.9em;">📄 Ver PDF Adjunto</a>` 
+                        : '<span style="color:#999; font-size:0.9em;">Sin archivo</span>';
+
+                    html += `
+                        <div style="border-left: 4px solid #2ecc71; background:#f4f6f8; margin-bottom:15px; padding:15px; border-radius:5px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <strong style="color:#2c3e50;">🗓️ ${fecha}</strong>
+                                <span style="background:#e67e22; color:white; padding:3px 8px; border-radius:12px; font-size:0.8em;">${rep.mes_reportado}</span>
+                            </div>
+                            <p style="margin:5px 0; font-size:0.9em;">👤 ${rep.nombre_encargado} | 📈 +${rep.avance_fisico_periodo}% | 💰 $${parseFloat(rep.avance_financiero_periodo).toLocaleString()}</p>
+                            <p style="margin:5px 0; font-size:0.9em;"><strong>Observaciones:</strong> ${rep.observaciones || 'Sin datos'}</p>
+                            <div style="text-align:right;">${btnPDF}</div>
+                        </div>
+                    `;
+                });
+                contenedor.innerHTML = html;
+            } catch (error) {
+                contenedor.innerHTML = "<p style='color:red;'>Error al cargar.</p>";
+            }
+        }
+    </script>
+</body>
+</html>
