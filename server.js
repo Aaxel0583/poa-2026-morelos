@@ -25,12 +25,11 @@ cloudinary.config({
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
-    folder: 'poa_evidencias', // Carpeta donde se guardarán en tu nube
-    allowed_formats: ['jpg', 'png', 'jpeg', 'pdf'] // Tipos de archivo permitidos
+    folder: 'poa_evidencias',
+    allowed_formats: ['jpg', 'png', 'jpeg', 'pdf'] 
   },
 });
 const upload = multer({ storage: storage });
-// (Eliminamos app.use('/uploads'...) porque ya no usamos la carpeta local)
 
 
 // 2. CONEXIÓN A BASE DE DATOS
@@ -114,7 +113,7 @@ app.get('/api/actividades/:id_dep', async (req, res) => {
     } catch (error) { res.status(500).send('Error'); }
 });
 
-// --- OBTENER HISTORIAL DETALLADO (CORREGIDO Y BLINDADO) ---
+// --- OBTENER HISTORIAL DETALLADO ---
 app.get('/api/historial/:codigo', async (req, res) => {
     try {
         const { codigo } = req.params;
@@ -136,7 +135,7 @@ app.get('/api/historial/:codigo', async (req, res) => {
     }
 });
 
-// --- GUARDAR REPORTE (CON PROTECCIÓN ESTRICTA MATEMÁTICA Y CLOUDINARY) ---
+// --- GUARDAR REPORTE ---
 app.post('/api/reportar', upload.single('evidencia'), async (req, res) => {
     const { id_actividad, mes, avance_fisico, avance_financiero, observaciones, encargado, correo } = req.body;
     
@@ -145,7 +144,7 @@ app.post('/api/reportar', upload.single('evidencia'), async (req, res) => {
     }
 
     try {
-        // 1. Verificación de Seguridad: Candado en el backend
+        // 1. Verificación de Seguridad
         const checkQuery = `SELECT COALESCE(SUM(avance_fisico_periodo), 0) as acumulado FROM REPORTES_AVANCE WHERE id_actividad = $1`;
         const checkResult = await pool.query(checkQuery, [id_actividad]);
         const avanceAcumulado = parseFloat(checkResult.rows[0].acumulado);
@@ -155,7 +154,7 @@ app.post('/api/reportar', upload.single('evidencia'), async (req, res) => {
             return res.status(400).json({ error: `Violación de límite. El avance total superaría el 100%. Te queda un máximo de ${100 - avanceAcumulado}% por reportar.` });
         }
 
-        // AQUÍ EL CAMBIO CLAVE: Tomamos la URL segura y permanente que nos devuelve Cloudinary
+        // AQUÍ ESTÁ LA MAGIA: Tomamos la URL de Cloudinary
         const url_evidencia = req.file ? req.file.path : null;
 
         const query = `
@@ -171,17 +170,6 @@ app.post('/api/reportar', upload.single('evidencia'), async (req, res) => {
     } catch (error) {
         console.error("Error al guardar:", error);
         res.status(500).json({ error: 'Error interno del servidor al intentar guardar' });
-    }
-});
-
-// --- RETROALIMENTACIÓN (ADMIN) ---
-app.post('/api/retroalimentar', async (req, res) => {
-    const { id_reporte, mensaje, estado } = req.body;
-    try {
-        res.json({ exito: true, mensaje: 'Función en construcción (Backend listo)' });
-    } catch (error) {
-        console.error(error);
-        res.status(500).send('Error guardando feedback');
     }
 });
 
