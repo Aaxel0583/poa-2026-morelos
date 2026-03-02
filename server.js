@@ -3,6 +3,8 @@ const { Pool } = require('pg');
 const cors = require('cors');
 const multer = require('multer');
 const path = require('path');
+const cloudinary = require('cloudinary').v2;
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
 
 const app = express();
 
@@ -13,18 +15,23 @@ app.use(express.json());
 // Decirle al servidor que sirva los archivos HTML de la carpeta 'public'
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Configuración de almacenamiento (Carpeta uploads)
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, 'uploads/'); 
-    },
-    filename: (req, file, cb) => {
-        const unico = Date.now() + path.extname(file.originalname);
-        cb(null, unico);
-    }
+// --- NUEVA CONFIGURACIÓN DE NUBE (CLOUDINARY) ---
+cloudinary.config({ 
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME, 
+  api_key: process.env.CLOUDINARY_API_KEY, 
+  api_secret: process.env.CLOUDINARY_API_SECRET 
+});
+
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'poa_evidencias', // Carpeta donde se guardarán en tu nube
+    allowed_formats: ['jpg', 'png', 'jpeg', 'pdf'] // Tipos de archivo permitidos
+  },
 });
 const upload = multer({ storage: storage });
-app.use('/uploads', express.static('uploads'));
+// (Eliminamos app.use('/uploads'...) porque ya no usamos la carpeta local)
+
 
 // 2. CONEXIÓN A BASE DE DATOS
 const pool = new Pool({
@@ -34,7 +41,7 @@ const pool = new Pool({
 
 // 3. RUTAS DEL SISTEMA
 
-// ---> AQUÍ ESTÁ EL CAMBIO: Redireccionar la entrada principal al Login <---
+// ---> Redireccionar la entrada principal al Login <---
 app.get('/', (req, res) => {
   res.redirect('/login.html');
 });
@@ -129,7 +136,7 @@ app.get('/api/historial/:codigo', async (req, res) => {
     }
 });
 
-// --- GUARDAR REPORTE (CON PROTECCIÓN ESTRICTA MATEMÁTICA) ---
+// --- GUARDAR REPORTE (CON PROTECCIÓN ESTRICTA MATEMÁTICA Y CLOUDINARY) ---
 app.post('/api/reportar', upload.single('evidencia'), async (req, res) => {
     const { id_actividad, mes, avance_fisico, avance_financiero, observaciones, encargado, correo } = req.body;
     
@@ -148,9 +155,8 @@ app.post('/api/reportar', upload.single('evidencia'), async (req, res) => {
             return res.status(400).json({ error: `Violación de límite. El avance total superaría el 100%. Te queda un máximo de ${100 - avanceAcumulado}% por reportar.` });
         }
 
-        // Para que las URLs de las evidencias no digan "localhost" en internet
-        const serverURL = process.env.RENDER_EXTERNAL_URL || process.env.RAILWAY_STATIC_URL || process.env.HOST_URL || `http://localhost:${port}`;
-        const url_evidencia = req.file ? `${serverURL}/uploads/${req.file.filename}` : null;
+        // AQUÍ EL CAMBIO CLAVE: Tomamos la URL segura y permanente que nos devuelve Cloudinary
+        const url_evidencia = req.file ? req.file.path : null;
 
         const query = `
             INSERT INTO REPORTES_AVANCE 
