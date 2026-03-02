@@ -25,8 +25,9 @@ cloudinary.config({
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
-    folder: 'poa_evidencias',
-    allowed_formats: ['jpg', 'png', 'jpeg', 'pdf'] 
+    folder: 'poa_evidencias', 
+    allowed_formats: ['jpg', 'png', 'jpeg', 'pdf'], 
+    resource_type: 'auto' // <--- SOLO TIENES QUE AGREGAR ESTA LÍNEA
   },
 });
 const upload = multer({ storage: storage });
