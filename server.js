@@ -137,7 +137,9 @@ app.get('/api/historial/:codigo', async (req, res) => {
 });
 
 // --- GUARDAR REPORTE ---
-app.post('/api/reportar', upload.single('evidencia'), async (req, res) => {
+// --- GUARDAR REPORTE (MODIFICADO PARA MÚLTIPLES ARCHIVOS) ---
+// Cambiamos .single() por .array() permitiendo hasta 5 archivos
+app.post('/api/reportar', upload.array('evidencia', 5), async (req, res) => {
     const { id_actividad, mes, avance_fisico, avance_financiero, observaciones, encargado, correo } = req.body;
     
     if (!id_actividad || !mes || !encargado || !correo) {
@@ -145,7 +147,7 @@ app.post('/api/reportar', upload.single('evidencia'), async (req, res) => {
     }
 
     try {
-        // 1. Verificación de Seguridad
+        // 1. Verificación de Seguridad del Porcentaje
         const checkQuery = `SELECT COALESCE(SUM(avance_fisico_periodo), 0) as acumulado FROM REPORTES_AVANCE WHERE id_actividad = $1`;
         const checkResult = await pool.query(checkQuery, [id_actividad]);
         const avanceAcumulado = parseFloat(checkResult.rows[0].acumulado);
@@ -155,16 +157,24 @@ app.post('/api/reportar', upload.single('evidencia'), async (req, res) => {
             return res.status(400).json({ error: `Violación de límite. El avance total superaría el 100%. Te queda un máximo de ${100 - avanceAcumulado}% por reportar.` });
         }
 
-        // AQUÍ ESTÁ LA MAGIA: Tomamos la URL de Cloudinary
-        const url_evidencia = req.file ? req.file.path : null;
+        // AQUÍ ESTÁ EL CAMBIO PARA MÚLTIPLES IMÁGENES
+        // req.files ahora es un arreglo con todos los archivos subidos
+        // Mapeamos los archivos para obtener sus URLs de Cloudinary y las unimos separadas por comas
+        let urls_evidencia = null;
+        if (req.files && req.files.length > 0) {
+            urls_evidencia = req.files.map(file => file.path).join(',');
+        }
 
+        // 3. Guardar en Base de Datos
+        // NOTA: Como ahora urls_evidencia guarda varias URLs separadas por coma, asegúrate
+        // que la columna 'url_evidencia_pdf' en tu base de datos Neon sea tipo TEXT (no un VARCHAR muy corto).
         const query = `
             INSERT INTO REPORTES_AVANCE 
             (id_actividad, mes_reportado, avance_fisico_periodo, avance_financiero_periodo, observaciones, url_evidencia_pdf, nombre_encargado, correo_contacto, estado_validacion)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'APROBADO')
             RETURNING id_reporte;
         `;
-        const valores = [id_actividad, mes, avanceNuevo, avance_financiero, observaciones, url_evidencia, encargado, correo];
+        const valores = [id_actividad, mes, avanceNuevo, avance_financiero, observaciones, urls_evidencia, encargado, correo];
         const respuesta = await pool.query(query, valores);
 
         res.json({ mensaje: 'Guardado correctamente', id: respuesta.rows[0].id_reporte });
