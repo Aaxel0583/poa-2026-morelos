@@ -35,7 +35,7 @@
             box-shadow: 0 2px 5px rgba(0,0,0,0.05);
             flex-wrap: wrap;
             align-items: flex-end;
-            border-left: 5px solid #3E6257; /* Combinado con el verde */
+            border-left: 5px solid #3E6257;
         }
         .filtro-item { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 250px; }
         .filtro-item label { font-weight: bold; font-size: 0.9em; color: #34495e; }
@@ -47,18 +47,17 @@
             outline: none;
         }
         .filtro-item input:focus, .filtro-item select:focus { border-color: #3E6257; }
-        /* ---------------------------------- */
 
         .btn-logout { background:#c0392b; color:white; padding:8px 15px; border:none; cursor:pointer; border-radius: 4px; font-weight: bold; }
         .btn-logout:hover { background:#a53125; }
-        .btn-evidencia { background-color: #e74c3c; color: white; padding: 6px 12px; text-decoration: none; border-radius: 4px; font-size: 0.9em; display: inline-block; margin-right: 5px; margin-bottom: 5px; font-weight: bold;}
+        .btn-evidencia { background-color: #e74c3c; color: white; padding: 6px 12px; text-decoration: none; border-radius: 4px; font-size: 0.85em; display: inline-block; margin-left: 5px; margin-bottom: 5px; font-weight: bold; transition: 0.2s;}
+        .btn-evidencia:hover { background-color: #c0392b; }
         .btn-historial { background-color: #8e44ad; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.9em; transition: 0.3s; margin-bottom: 5px;}
         .btn-historial:hover { background-color: #732d91; }
     </style>
 </head>
 <body>
     <script>
-        // Verificación de sesión
         const usuarioGuardado = localStorage.getItem('usuarioPOA');
         if (!usuarioGuardado) {
             window.location.href = 'login.html';
@@ -127,11 +126,9 @@
     </div>
 
     <script>
-        // Variables globales para los filtros y la gráfica
         let todosLosDatos = [];
         let chartInstance = null;
 
-        // 1. CARGAR DATOS INICIALES
         async function cargarDatos() {
             try {
                 const respDeptos = await fetch('/api/departamentos');
@@ -146,16 +143,13 @@
 
                 const respuesta = await fetch('/api/tablero');
                 todosLosDatos = await respuesta.json();
-
                 aplicarFiltros();
-
             } catch (error) {
                 console.error("Error cargando datos:", error);
-                document.querySelector('#tablaDatos tbody').innerHTML = '<tr><td colspan="4" style="text-align:center; color:red; font-weight:bold;">Error de conexión con el servidor. Verifica tu internet.</td></tr>';
+                document.querySelector('#tablaDatos tbody').innerHTML = '<tr><td colspan="4" style="text-align:center; color:red; font-weight:bold;">Error de conexión con el servidor.</td></tr>';
             }
         }
 
-        // 2. FUNCIÓN DE FILTRADO
         function aplicarFiltros() {
             const deptoSeleccionado = document.getElementById('filtroDep').value;
             const textoBusqueda = document.getElementById('txtBuscar').value.toLowerCase();
@@ -171,13 +165,12 @@
             renderizarGrafica(datosFiltrados);
         }
 
-        // 3. RENDERIZAR TABLA
         function renderizarTabla(datos) {
             const tabla = document.querySelector('#tablaDatos tbody');
             tabla.innerHTML = ''; 
 
             if (datos.length === 0) {
-                tabla.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 20px; color:#7f8c8d;">No se encontraron proyectos con esta búsqueda.</td></tr>';
+                tabla.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 20px; color:#7f8c8d;">No se encontraron proyectos.</td></tr>';
                 return;
             }
 
@@ -209,12 +202,9 @@
             });
         }
 
-        // 4. RENDERIZAR GRÁFICA
         function renderizarGrafica(datos) {
             const ctx = document.getElementById('graficaAvance').getContext('2d');
-            
             if (chartInstance) { chartInstance.destroy(); }
-
             const nombres = datos.map(d => d.codigo_proyecto);
             const avances = datos.map(d => d.porcentaje_avance_fisico);
 
@@ -225,7 +215,7 @@
                     datasets: [{
                         label: '% Avance Físico',
                         data: avances,
-                        backgroundColor: '#3E6257', /* Barras de la gráfica en verde institucional */
+                        backgroundColor: '#3E6257',
                         borderColor: '#2c473f',
                         borderWidth: 1,
                         borderRadius: 4
@@ -245,9 +235,7 @@
     <div id="modalHistorial" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:1000; justify-content:center; align-items:center; backdrop-filter: blur(3px);">
         <div style="background:white; width:90%; max-width:700px; max-height:80vh; border-radius:10px; padding:25px; overflow-y:auto; position:relative; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
             <button onclick="document.getElementById('modalHistorial').style.display='none'" style="position:absolute; top:15px; right:15px; background:#e74c3c; color:white; border:none; padding:8px 12px; border-radius:5px; cursor:pointer; font-weight:bold;">Cerrar X</button>
-            
             <h2 id="tituloModal" style="color:#2c3e50; margin-top:0; border-bottom:2px solid #eee; padding-bottom:10px;">Historial de Reportes</h2>
-            
             <div id="contenedorHistorial" style="margin-top:20px;"></div>
         </div>
     </div>
@@ -261,63 +249,63 @@
 
             try {
                 const resp = await fetch('/api/historial/' + codigoProyecto);
-                
-                if (!resp.ok) throw new Error("El servidor no respondió correctamente");
-                
+                if (!resp.ok) throw new Error("Error en servidor");
                 const historial = await resp.json();
 
                 if(historial.length === 0) {
-                    contenedor.innerHTML = "<div style='text-align:center; padding: 30px;'><h3 style='color:#7f8c8d;'>Aún no hay reportes</h3><p>Este proyecto no ha registrado avances todavía.</p></div>";
+                    contenedor.innerHTML = "<p style='text-align:center;'>Aún no hay reportes.</p>";
                     return;
                 }
 
                 let html = "";
                 historial.forEach(rep => {
-                    const fecha = rep.fecha_exacta ? rep.fecha_exacta : "Registro Acumulado Histórico";
+                    const fecha = rep.fecha_exacta ? rep.fecha_exacta : "Registro Histórico";
                     
-                    const btnPDF = rep.url_evidencia_pdf 
-                        ? `<a href="${rep.url_evidencia_pdf}" target="_blank" class="btn-evidencia">Abrir Evidencia Adjunta</a>` 
-                        : '<span style="color:#999; font-size:0.9em; font-style:italic; display:inline-block; padding:5px;">Sin archivo adjunto</span>';
+                    // --- CORRECCIÓN PARA MÚLTIPLES ARCHIVOS ---
+                    let btnsHTML = "";
+                    if (rep.url_evidencia_pdf) {
+                        // Separamos las URLs por coma
+                        const urls = rep.url_evidencia_pdf.split(',');
+                        btnsHTML = urls.map((url, i) => {
+                            const link = url.trim();
+                            if(!link) return '';
+                            // Si es una sola URL, nombre simple. Si son varias, enumerar.
+                            const texto = urls.length > 1 ? `Ver Archivo ${i+1}` : 'Ver Evidencia Adjunta';
+                            return `<a href="${link}" target="_blank" class="btn-evidencia">${texto}</a>`;
+                        }).join('');
+                    } else {
+                        btnsHTML = '<span style="color:#999; font-style:italic;">Sin evidencia</span>';
+                    }
 
                     html += `
                         <div style="border-left: 5px solid #3E6257; background:#f8f9fa; margin-bottom:20px; padding:20px; border-radius:0 8px 8px 0; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom: 1px solid #ddd; padding-bottom: 10px;">
-                                <strong style="color:#2c3e50; font-size: 1.1em;">Enviado el: ${fecha}</strong>
-                                <span style="background:#3E6257; color:white; padding:5px 12px; border-radius:15px; font-size:0.85em; font-weight:bold;">Mes reportado: ${rep.mes_reportado}</span>
+                                <strong style="color:#2c3e50;">Enviado el: ${fecha}</strong>
+                                <span style="background:#3E6257; color:white; padding:5px 12px; border-radius:15px; font-size:0.85em; font-weight:bold;">${rep.mes_reportado}</span>
                             </div>
-                            
                             <p style="margin:5px 0; color:#34495e; font-size:0.95em;">
-                                <strong>Responsable:</strong> ${rep.nombre_encargado || 'No especificado'} <br>
-                                <strong>Correo:</strong> <a href="mailto:${rep.correo_contacto}" style="color:#2980b9;">${rep.correo_contacto || 'N/A'}</a>
+                                <strong>Responsable:</strong> ${rep.nombre_encargado || 'N/A'}
                             </p>
-                            
                             <div style="display:flex; justify-content:space-around; background:white; padding:15px; border-radius:8px; margin:15px 0; border: 1px solid #e0e0e0;">
                                 <div style="text-align:center;">
-                                    <b style="font-size: 1.2em; color: #27ae60;">+${rep.avance_fisico_periodo}%</b><br>
-                                    <small style="color:#7f8c8d;">Avance Físico</small>
+                                    <b style="font-size: 1.2em; color: #27ae60;">+${rep.avance_fisico_periodo}%</b><br><small>Físico</small>
                                 </div>
-                                <div style="border-left: 1px solid #eee;"></div>
                                 <div style="text-align:center;">
-                                    <b style="font-size: 1.2em; color:#c0392b;">$${parseFloat(rep.avance_financiero_periodo).toLocaleString('es-MX')}</b><br>
-                                    <small style="color:#7f8c8d;">Gasto del mes</small>
+                                    <b style="font-size: 1.2em; color:#c0392b;">$${parseFloat(rep.avance_financiero_periodo).toLocaleString('es-MX')}</b><br><small>Gasto</small>
                                 </div>
                             </div>
-
-                            <div style="background: white; padding: 10px; border-radius: 5px; border-left: 3px solid #3E6257;">
-                                <p style="margin:0; font-size:0.95em; line-height:1.5; color:#555;"><strong>Observaciones:</strong><br> ${rep.observaciones || '<i>Sin observaciones adicionales.</i>'}</p>
+                            <div style="background: white; padding: 10px; border-radius: 5px; border-left: 3px solid #3E6257; margin-bottom:10px;">
+                                <p style="margin:0; font-size:0.9em; color:#555;"><strong>Observaciones:</strong> ${rep.observaciones || 'Sin observaciones.'}</p>
                             </div>
-                            
-                            <div style="text-align:right; margin-top:15px;">
-                                ${btnPDF}
+                            <div style="text-align:right;">
+                                ${btnsHTML}
                             </div>
                         </div>
                     `;
                 });
                 contenedor.innerHTML = html;
-
             } catch (error) {
-                console.error(error);
-                contenedor.innerHTML = "<p style='color:red; text-align:center; font-weight:bold;'>Error al cargar el historial. Revisa tu conexión.</p>";
+                contenedor.innerHTML = "<p style='color:red; text-align:center;'>Error al cargar datos.</p>";
             }
         }
     </script>
