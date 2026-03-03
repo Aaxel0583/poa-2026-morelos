@@ -12,7 +12,7 @@
         
         /* Contenedor del Logo */
         .logo-container { text-align: center; margin-bottom: 20px; }
-        .logo-container img { max-width: 140px; height: auto; } /* Cambia el 140px si lo quieres más grande o chico */
+        .logo-container img { max-width: 140px; height: auto; }
 
         /* Textos principales */
         h2 { text-align: center; color: #2c3e50; margin-top: 0; font-weight: bold; font-size: 28px; }
@@ -40,9 +40,24 @@
             outline: none;
         }
 
-        /* Botón más grande y visible */
-        button.primary { width: 100%; background-color: #27ae60; color: white; padding: 15px; border: none; border-radius: 6px; cursor: pointer; font-size: 18px; font-weight: bold; margin-top: 10px; transition: 0.3s;}
-        button.primary:hover { background-color: #219150; }
+        /* --- BOTÓN AHORA EN ROJO INSTITUCIONAL --- */
+        button.primary { 
+            width: 100%; 
+            background-color: #e74c3c; /* Rojo */
+            color: white; 
+            padding: 15px; 
+            border: none; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            font-size: 18px; 
+            font-weight: bold; 
+            margin-top: 10px; 
+            transition: 0.3s;
+        }
+        button.primary:hover { 
+            background-color: #c0392b; /* Rojo más oscuro al pasar el mouse */
+        }
+        /* ----------------------------------------- */
         
         .presupuesto-box { background-color: #e8f8f5; border-left: 5px solid #1abc9c; padding: 15px; margin-bottom: 20px; display: none; line-height: 1.6; font-size: 16px;}
     </style>
@@ -107,8 +122,8 @@
             <label>Observaciones / Justificación:</label>
             <textarea id="obs" placeholder="Describe brevemente los logros o si te pasaste del presupuesto, explica por qué..."></textarea>
 
-            <label>Evidencia (Foto o PDF):</label>
-            <input type="file" id="archivoEvidencia" accept=".pdf, .jpg, .png, .jpeg">
+            <label>Evidencias (Puedes seleccionar varias fotos o PDFs):</label>
+            <input type="file" id="archivoEvidencia" accept=".pdf, .jpg, .png, .jpeg" multiple>
 
             <button type="submit" class="primary">Enviar Reporte Oficial</button>
         </form>
@@ -223,10 +238,22 @@
             formData.append('avance_financiero', document.getElementById('financiero').value);
             formData.append('observaciones', document.getElementById('obs').value);
             
+            // --- NUEVA LÓGICA PARA MÚLTIPLES ARCHIVOS ---
             const fileInput = document.getElementById('archivoEvidencia');
-            if (fileInput.files[0]) formData.append('evidencia', fileInput.files[0]);
+            if (fileInput.files.length > 0) {
+                // Recorremos todos los archivos seleccionados y los agregamos al FormData
+                for (let i = 0; i < fileInput.files.length; i++) {
+                    formData.append('evidencia', fileInput.files[i]);
+                }
+            }
 
             try {
+                // Se agregó feedback visual al botón de enviar mientras se suben los archivos
+                const submitBtn = document.querySelector('button[type="submit"]');
+                const btnTextOriginal = submitBtn.innerText;
+                submitBtn.innerText = "Enviando... por favor espera";
+                submitBtn.disabled = true;
+
                 const resp = await fetch('/api/reportar', { method: 'POST', body: formData });
                 
                 if (resp.ok) {
@@ -235,8 +262,15 @@
                 } else { 
                     const errorData = await resp.json();
                     alert('Error al guardar: ' + (errorData.error || 'Desconocido')); 
+                    submitBtn.innerText = btnTextOriginal;
+                    submitBtn.disabled = false;
                 }
-            } catch (err) { alert('Error de conexión con el servidor. Revisa tu internet.'); }
+            } catch (err) { 
+                alert('Error de conexión con el servidor. Revisa tu internet.'); 
+                const submitBtn = document.querySelector('button[type="submit"]');
+                submitBtn.innerText = "Enviar Reporte Oficial";
+                submitBtn.disabled = false;
+            }
         });
     </script>
 </body>
