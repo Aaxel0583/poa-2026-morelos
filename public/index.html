@@ -283,9 +283,12 @@
                                 <strong style="color:#2c3e50;">Enviado el: ${fecha}</strong>
                                 <span style="background:#3E6257; color:white; padding:5px 12px; border-radius:15px; font-size:0.85em; font-weight:bold;">${rep.mes_reportado}</span>
                             </div>
-                            <p style="margin:5px 0; color:#34495e; font-size:0.95em;">
-                                <strong>Responsable:</strong> ${rep.nombre_encargado || 'N/A'}
+                            
+                            <p style="margin:5px 0; color:#34495e; font-size:0.95em; line-height:1.6;">
+                                <strong>Responsable:</strong> ${rep.nombre_encargado || 'No especificado'}<br>
+                                <strong>Correo:</strong> <a href="mailto:${rep.correo_contacto}" style="color:#2980b9; text-decoration:none;">${rep.correo_contacto || 'Sin correo registrado'}</a>
                             </p>
+                            
                             <div style="display:flex; justify-content:space-around; background:white; padding:15px; border-radius:8px; margin:15px 0; border: 1px solid #e0e0e0;">
                                 <div style="text-align:center;">
                                     <b style="font-size: 1.2em; color: #27ae60;">+${rep.avance_fisico_periodo}%</b><br><small>Físico</small>
