@@ -108,7 +108,19 @@
         </div>
 
         <div class="card">
-            <h2>Detalle Financiero y Físico</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 15px;">
+                <h2 style="margin-bottom: 0;">Detalle Financiero y Físico</h2>
+                <div>
+                    <label for="ordenarPor" style="font-weight: bold; font-size: 0.9em; color: #34495e; margin-right: 10px;">Ordenar por:</label>
+                    <select id="ordenarPor" onchange="aplicarFiltros()" style="padding: 8px; border: 1px solid #bdc3c7; border-radius: 5px; font-size: 14px; outline: none;">
+                        <option value="defecto">Orden por Defecto</option>
+                        <option value="fisico_max">Avance Físico (Mayor a Menor)</option>
+                        <option value="fisico_min">Avance Físico (Menor a Mayor)</option>
+                        <option value="gastado_max">Presupuesto Gastado (Mayor a Menor)</option>
+                        <option value="gastado_min">Presupuesto Gastado (Menor a Mayor)</option>
+                    </select>
+                </div>
+            </div>
             <div style="overflow-x: auto;">
                 <table id="tablaDatos">
                     <thead>
@@ -153,13 +165,25 @@
         function aplicarFiltros() {
             const deptoSeleccionado = document.getElementById('filtroDep').value;
             const textoBusqueda = document.getElementById('txtBuscar').value.toLowerCase();
+            const ordenSeleccionado = document.getElementById('ordenarPor').value; // Obtenemos el tipo de orden
 
-            const datosFiltrados = todosLosDatos.filter(dato => {
+            let datosFiltrados = todosLosDatos.filter(dato => {
                 const pasaDepto = (deptoSeleccionado === 'TODOS' || dato.nombre_departamento === deptoSeleccionado);
                 const pasaTexto = dato.codigo_proyecto.toLowerCase().includes(textoBusqueda) || 
                                   dato.nombre_proyecto.toLowerCase().includes(textoBusqueda);
                 return pasaDepto && pasaTexto;
             });
+
+            // Lógica matemática para ordenar los resultados
+            if (ordenSeleccionado === 'fisico_max') {
+                datosFiltrados.sort((a, b) => b.porcentaje_avance_fisico - a.porcentaje_avance_fisico);
+            } else if (ordenSeleccionado === 'fisico_min') {
+                datosFiltrados.sort((a, b) => a.porcentaje_avance_fisico - b.porcentaje_avance_fisico);
+            } else if (ordenSeleccionado === 'gastado_max') {
+                datosFiltrados.sort((a, b) => b.gastado_total - a.gastado_total);
+            } else if (ordenSeleccionado === 'gastado_min') {
+                datosFiltrados.sort((a, b) => a.gastado_total - b.gastado_total);
+            }
 
             renderizarTabla(datosFiltrados);
             renderizarGrafica(datosFiltrados);
