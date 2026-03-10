@@ -274,45 +274,78 @@ app.post('/api/superadmin/proyecto', async (req, res) => {
 });
 // 5. Borrar un Proyecto Completo (y todos sus reportes)
 app.delete('/api/superadmin/proyecto/:codigo', async (req, res) => {
+    const client = await pool.connect(); // Usamos un cliente específico para la transacción
     try {
         const { codigo } = req.params;
-        await pool.query(`
-            DO $$
-            DECLARE v_id_proyecto INT;
-            BEGIN
-                SELECT id_proyecto INTO v_id_proyecto FROM PROYECTOS WHERE codigo_proyecto = $1;
-                IF v_id_proyecto IS NOT NULL THEN
-                    DELETE FROM REPORTES_AVANCE WHERE id_actividad IN (SELECT id_actividad FROM ACTIVIDADES_PLANEADAS WHERE id_proyecto = v_id_proyecto);
-                    DELETE FROM ACTIVIDADES_PLANEADAS WHERE id_proyecto = v_id_proyecto;
-                    DELETE FROM PROYECTOS WHERE id_proyecto = v_id_proyecto;
-                END IF;
-            END $$;
-        `, [codigo]);
+        await client.query('BEGIN'); // Iniciar transacción
+
+        // 1. Obtener el ID del proyecto
+        const proyRes = await client.query('SELECT id_proyecto FROM PROYECTOS WHERE codigo_proyecto = $1', [codigo]);
+        
+        if (proyRes.rows.length > 0) {
+            const id_proyecto = proyRes.rows[0].id_proyecto;
+
+            // 2. Borrar reportes de ese proyecto
+            await client.query('DELETE FROM REPORTES_AVANCE WHERE id_actividad IN (SELECT id_actividad FROM ACTIVIDADES_PLANEADAS WHERE id_proyecto = $1)', [id_proyecto]);
+            
+            // 3. Borrar actividades del proyecto
+            await client.query('DELETE FROM ACTIVIDADES_PLANEADAS WHERE id_proyecto = $1', [id_proyecto]);
+            
+            // 4. Finalmente, borrar el proyecto
+            await client.query('DELETE FROM PROYECTOS WHERE id_proyecto = $1', [id_proyecto]);
+        }
+
+        await client.query('COMMIT'); // Guardar cambios
         res.json({ exito: true, mensaje: 'Proyecto y todos sus reportes eliminados correctamente.' });
     } catch (error) {
+        await client.query('ROLLBACK'); // Deshacer todo si hay error
         console.error("Error al borrar proyecto:", error);
         res.status(500).json({ exito: false, mensaje: 'Error al borrar proyecto en la base de datos.' });
+    } finally {
+        client.release(); // Liberar el cliente
     }
 });
-
 // 6. Borrar un Departamento Completo (y todos sus proyectos y reportes)
 app.delete('/api/superadmin/departamento/:id', async (req, res) => {
+    const client = await pool.connect();
     try {
         const { id } = req.params;
-        await pool.query(`
-            DO $$
-            BEGIN
-                DELETE FROM REPORTES_AVANCE WHERE id_actividad IN (SELECT a.id_actividad FROM ACTIVIDADES_PLANEADAS a JOIN PROYECTOS p ON a.id_proyecto = p.id_proyecto JOIN METAS_GENERALES m ON p.id_meta = m.id_meta WHERE m.id_dependencia = $1);
-                DELETE FROM ACTIVIDADES_PLANEADAS WHERE id_proyecto IN (SELECT p.id_proyecto FROM PROYECTOS p JOIN METAS_GENERALES m ON p.id_meta = m.id_meta WHERE m.id_dependencia = $1);
-                DELETE FROM PROYECTOS WHERE id_meta IN (SELECT id_meta FROM METAS_GENERALES WHERE id_dependencia = $1);
-                DELETE FROM METAS_GENERALES WHERE id_dependencia = $1;
-                DELETE FROM DEPARTAMENTOS WHERE id_dependencia = $1;
-            END $$;
-        `, [id]);
+        await client.query('BEGIN'); // Iniciamos la transacción segura
+
+        // 1. Borrar reportes
+        await client.query(`
+            DELETE FROM reportes_avance WHERE id_actividad IN (
+                SELECT a.id_actividad FROM actividades_planeadas a 
+                JOIN proyectos p ON a.id_proyecto = p.id_proyecto 
+                JOIN metas_generales m ON p.id_meta = m.id_meta 
+                WHERE m.id_dependencia = $1
+            )`, [id]);
+
+        // 2. Borrar actividades
+        await client.query(`
+            DELETE FROM actividades_planeadas WHERE id_proyecto IN (
+                SELECT p.id_proyecto FROM proyectos p 
+                JOIN metas_generales m ON p.id_meta = m.id_meta 
+                WHERE m.id_dependencia = $1
+            )`, [id]);
+
+        // 3. Borrar proyectos
+        await client.query(`DELETE FROM proyectos WHERE id_meta IN (SELECT id_meta FROM metas_generales WHERE id_dependencia = $1)`, [id]);
+
+        // 4. Borrar metas
+        await client.query(`DELETE FROM metas_generales WHERE id_dependencia = $1`, [id]);
+
+        // 5. Borrar departamento (AQUÍ ESTÁ LA CLAVE: Usamos la tabla 'departamentos')
+        await client.query(`DELETE FROM departamentos WHERE id_dependencia = $1`, [id]); 
+
+        await client.query('COMMIT'); // Si todo salió bien, guardamos los cambios
         res.json({ exito: true, mensaje: 'Departamento, metas, proyectos y reportes eliminados para siempre.' });
     } catch (error) {
+        await client.query('ROLLBACK'); // Si falla, deshacemos todo para no romper la BD
         console.error("Error al borrar departamento:", error);
         res.status(500).json({ exito: false, mensaje: 'Error al borrar departamento en la base de datos.' });
+    } finally {
+        client.release(); // Siempre liberamos la conexión
     }
 });
 
