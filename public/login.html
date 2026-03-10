@@ -86,8 +86,8 @@
         
         <h2>Sistema POA</h2>
         
-        <input type="email" id="email" placeholder="Correo Institucional" value="admin@morelos.gob.mx">
-        <input type="password" id="password" placeholder="Contraseña" value="admin">
+        <input type="email" id="email" placeholder="Correo Institucional" value="trejorafa_7@yahoo.com.mx">
+        <input type="password" id="password" placeholder="Contraseña" value="RafatrejoPoa2026..">
         
         <button onclick="iniciarSesion()">Ingresar</button>
         
@@ -129,9 +129,10 @@
                 if (data.exito) {
                     // ¡Login exitoso! Guardamos usuario
                     localStorage.setItem('usuarioPOA', JSON.stringify(data.usuario));
-                    
-                    // REDIRECCIÓN INTELIGENTE
-                    if (data.usuario.rol === 'ADMIN') {
+                  // REDIRECCIÓN INTELIGENTE
+                    if (data.usuario.rol === 'SUPERADMIN') {
+                        window.location.href = 'superadmin.html'; // Tú vas a tu panel de control total
+                    } else if (data.usuario.rol === 'ADMIN') {
                         window.location.href = 'presidencia.html'; // El Jefe va a la gráfica general
                     } else {
                         window.location.href = 'captura.html'; // El trabajador va directo a trabajar
