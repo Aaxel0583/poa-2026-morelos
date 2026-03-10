@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Control Supremo - POA 2026</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background-color: #ecf0f1; margin: 0; padding: 20px; color: #2c3e50; }
+        
+        /* ESTILO EXCLUSIVO SUPER ADMIN (Azul Marino y Dorado) */
+        .header { background-color: #2c3e50; color: #f1c40f; padding: 20px; border-radius: 8px; margin-bottom: 20px; text-align: center; border-bottom: 5px solid #f39c12; }
+        .header h1 { margin: 0; font-size: 28px; }
+        .header p { color: white; margin: 5px 0 0 0; }
+        
+        /* Barra superior */
+        .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .btn-logout { background: #c0392b; color: white; padding: 8px 15px; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; }
+        .btn-logout:hover { background: #a53125; }
+
+        /* Pestañas (Tabs) */
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+        .tab-btn { padding: 12px 20px; border: none; background: #bdc3c7; color: #2c3e50; font-weight: bold; cursor: pointer; border-radius: 5px 5px 0 0; font-size: 16px; transition: 0.3s; }
+        .tab-btn.active { background: white; color: #d35400; border-top: 4px solid #d35400; }
+        .tab-btn:hover:not(.active) { background: #95a5a6; }
+
+        /* Contenido de las Pestañas */
+        .tab-content { display: none; background: white; padding: 25px; border-radius: 0 8px 8px 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .tab-content.active { display: block; }
+
+        /* Formularios y Tablas */
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-weight: bold; margin-bottom: 5px; color: #34495e; }
+        .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #bdc3c7; border-radius: 4px; font-size: 15px; box-sizing: border-box; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #2c3e50; color: white; }
+        
+        .btn-action { background: #3498db; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .btn-danger { background: #e74c3c; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .btn-success { background: #27ae60; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; font-size: 16px; margin-top: 10px;}
+    </style>
+</head>
+<body>
+
+    <script>
+        const usuarioGuardado = localStorage.getItem('usuarioPOA');
+        if (!usuarioGuardado) {
+            window.location.href = 'login.html';
+        } else {
+            const usuario = JSON.parse(usuarioGuardado);
+            if (usuario.rol !== 'SUPERADMIN') {
+                window.location.href = 'login.html';
+            }
+        }
+        function cerrarSesion() {
+            localStorage.removeItem('usuarioPOA');
+            window.location.href = 'login.html';
+        }
+    </script>
+
+    <div class="top-bar">
+        <div><strong>👤 Usuario:</strong> <span style="color:#d35400;">Super Administrador</span></div>
+        <button onclick="cerrarSesion()" class="btn-logout">Cerrar Sesión</button>
+    </div>
+
+    <div class="header">
+        <h1>⚙️ PANEL SUPREMO DE ADMINISTRACIÓN</h1>
+        <p>Control Total de Base de Datos - POA 2026</p>
+    </div>
+
+    <div class="tabs">
+        <button class="tab-btn active" onclick="abrirTab('tab-reportes', this)">🗑️ Gestión de Reportes</button>
+        <button class="tab-btn" onclick="abrirTab('tab-proyectos', this)">📁 Modificar Proyectos / Presupuestos</button>
+        <button class="tab-btn" onclick="abrirTab('tab-departamentos', this)">🏢 Crear Departamentos</button>
+    </div>
+
+    <div id="tab-reportes" class="tab-content active">
+        <h2>Eliminar Reportes de un Proyecto</h2>
+        <div class="form-group">
+            <label>Selecciona el Proyecto:</label>
+            <select id="selectProyectoReportes" onchange="cargarHistorialParaBorrar()">
+                <option value="">-- Cargando proyectos... --</option>
+            </select>
+        </div>
+        <div style="overflow-x: auto;">
+            <table id="tablaReportes">
+                <thead>
+                    <tr>
+                        <th>Fecha y Mes</th>
+                        <th>Avance Físico</th>
+                        <th>Gasto Reportado</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td colspan="4" style="text-align:center;">Selecciona un proyecto para ver sus reportes.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="tab-proyectos" class="tab-content">
+        <h2>Añadir Nuevo Proyecto o Modificar Presupuesto</h2>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #ddd;">
+                <h3 style="margin-top:0;">Crear Proyecto Nuevo</h3>
+                <div class="form-group">
+                    <label>Departamento:</label>
+                    <select id="selectDeptoNuevoProyecto"></select>
+                </div>
+                <div class="form-group">
+                    <label>Código del Proyecto (Ej. OBR-P06):</label>
+                    <input type="text" id="nuevoCodigoProy" placeholder="Código Único">
+                </div>
+                <div class="form-group">
+                    <label>Nombre del Proyecto:</label>
+                    <input type="text" id="nuevoNombreProy" placeholder="Nombre completo">
+                </div>
+                <div class="form-group">
+                    <label>Presupuesto Autorizado Inicial ($):</label>
+                    <input type="number" id="nuevoPresupuestoProy" placeholder="Ej: 50000" value="0">
+                </div>
+                <button class="btn-success" onclick="crearProyectoSuperAdmin()">Crear Proyecto</button>
+            </div>
+
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #ddd;">
+                <h3 style="margin-top:0;">Actualizar Presupuesto Existente</h3>
+                <div class="form-group">
+                    <label>Selecciona el Proyecto a Modificar:</label>
+                    <select id="selectProyectoModificar"></select>
+                </div>
+                <div class="form-group">
+                    <label>Nuevo Presupuesto Autorizado Total ($):</label>
+                    <input type="number" id="modificarPresupuesto" placeholder="Nueva cantidad total">
+                    <small style="color:#7f8c8d;">Escribe la cantidad total oficial. Esto sobreescribirá el presupuesto anterior.</small>
+                </div>
+                <button class="btn-action" style="width: 100%; padding: 10px; font-size: 16px; margin-top: 10px;" onclick="modificarPresupuestoSuperAdmin()">Actualizar Presupuesto</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="tab-departamentos" class="tab-content">
+        <h2>Crear un Departamento Nuevo</h2>
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #ddd; max-width: 500px;">
+            <div class="form-group">
+                <label>Nombre del Nuevo Departamento:</label>
+                <input type="text" id="nuevoNombreDepto" placeholder="Ej: Instituto de la Vivienda">
+            </div>
+            <button class="btn-success" onclick="crearDepartamentoSuperAdmin()">Guardar Departamento</button>
+        </div>
+    </div>
+
+    <script>
+        function abrirTab(idTab, elemento) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(idTab).classList.add('active');
+            elemento.classList.add('active');
+        }
+
+        // --- FUNCIONES PREPARATORIAS (Cargar listas desplegables) ---
+        async function cargarDatosIniciales() {
+            try {
+                // Cargar Departamentos
+                const resDep = await fetch('/api/departamentos');
+                const deptos = await resDep.json();
+                const selectDep = document.getElementById('selectDeptoNuevoProyecto');
+                let opcionesDep = '<option value="">-- Selecciona --</option>';
+                deptos.forEach(d => opcionesDep += `<option value="${d.id_dependencia}">${d.nombre}</option>`);
+                selectDep.innerHTML = opcionesDep;
+
+                // Cargar Proyectos para los selects
+                const resProy = await fetch('/api/tablero');
+                const proyectos = await resProy.json();
+                const selectBorrar = document.getElementById('selectProyectoReportes');
+                const selectModificar = document.getElementById('selectProyectoModificar');
+                
+                let opcionesProy = '<option value="">-- Selecciona un Proyecto --</option>';
+                proyectos.forEach(p => {
+                    opcionesProy += `<option value="${p.codigo_proyecto}">${p.codigo_proyecto} - ${p.nombre_proyecto}</option>`;
+                });
+                selectBorrar.innerHTML = opcionesProy;
+                selectModificar.innerHTML = opcionesProy;
+
+            } catch (e) {
+                console.error("Error al cargar datos base", e);
+            }
+        }
+
+        // --- FUNCIONES CONECTADAS AL SERVIDOR (Aún por programar en server.js) ---
+        async function cargarHistorialParaBorrar() {
+            const codigo = document.getElementById('selectProyectoReportes').value;
+            const tbody = document.querySelector('#tablaReportes tbody');
+            if(!codigo) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Selecciona un proyecto.</td></tr>'; return; }
+            
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Cargando reportes...</td></tr>';
+            
+            try {
+                const res = await fetch('/api/historial/' + codigo);
+                const historial = await res.json();
+                
+                if(historial.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Este proyecto no tiene reportes.</td></tr>';
+                    return;
+                }
+
+                let html = '';
+                historial.forEach(rep => {
+                    html += `
+                        <tr>
+                            <td><strong>${rep.fecha_exacta || 'Fecha antigua'}</strong><br><small>${rep.mes_reportado}</small></td>
+                            <td>+${rep.avance_fisico_periodo}%</td>
+                            <td>$${parseFloat(rep.avance_financiero_periodo).toLocaleString('es-MX')}</td>
+                            <td><button class="btn-danger" onclick="borrarReporteSuperAdmin(${rep.id_reporte})">🗑️ Borrar Reporte</button></td>
+                        </tr>
+                    `;
+                });
+                tbody.innerHTML = html;
+            } catch(e) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:red;">Error de conexión.</td></tr>';
+            }
+        }
+
+       async function borrarReporteSuperAdmin(idReporte) {
+            if(!confirm("⚠️ ¿Estás COMPLETAMENTE SEGURO de querer borrar este reporte? Se perderán las evidencias y no se puede deshacer.")) return;
+            
+            try {
+                const res = await fetch('/api/superadmin/reporte/' + idReporte, { method: 'DELETE' });
+                const data = await res.json();
+                alert(data.mensaje);
+                if(data.exito) cargarHistorialParaBorrar(); // Recargar la tabla
+            } catch(e) { alert('Error de conexión.'); }
+        }
+
+        async function crearProyectoSuperAdmin() {
+            const id_dependencia = document.getElementById('selectDeptoNuevoProyecto').value;
+            const codigo = document.getElementById('nuevoCodigoProy').value;
+            const nombre = document.getElementById('nuevoNombreProy').value;
+            const presupuesto = document.getElementById('nuevoPresupuestoProy').value;
+
+            if(!id_dependencia || !codigo || !nombre) { alert("Llena todos los campos."); return; }
+
+            try {
+                const res = await fetch('/api/superadmin/proyecto', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id_dependencia, codigo, nombre, presupuesto })
+                });
+                const data = await res.json();
+                alert(data.mensaje);
+                if(data.exito) location.reload(); // Recargar página para actualizar listas
+            } catch(e) { alert('Error de conexión.'); }
+        }
+
+        async function modificarPresupuestoSuperAdmin() {
+            const codigo_proyecto = document.getElementById('selectProyectoModificar').value;
+            const nuevo_presupuesto = document.getElementById('modificarPresupuesto').value;
+
+            if(!codigo_proyecto || nuevo_presupuesto === "") { alert("Selecciona proyecto y escribe presupuesto."); return; }
+
+            try {
+                const res = await fetch('/api/superadmin/presupuesto', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ codigo_proyecto, nuevo_presupuesto })
+                });
+                const data = await res.json();
+                alert(data.mensaje);
+            } catch(e) { alert('Error de conexión.'); }
+        }
+
+        async function crearDepartamentoSuperAdmin() {
+            const nombre = document.getElementById('nuevoNombreDepto').value;
+            if(!nombre) { alert("Escribe un nombre de departamento."); return; }
+
+            try {
+                const res = await fetch('/api/superadmin/departamento', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nombre })
+                });
+                const data = await res.json();
+                alert(data.mensaje);
+                if(data.exito) location.reload(); // Recargar listas
+            } catch(e) { alert('Error de conexión.'); }
+        }
+        cargarDatosIniciales();
+    </script>
+</body>
+</html>
