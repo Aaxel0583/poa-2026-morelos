@@ -54,7 +54,7 @@
     </div>
 
     <div id="tab-reportes" class="tab-content active">
-        <h2>Eliminar Reportes de un Proyecto</h2>
+        <h2>Gestión de Reportes de un Proyecto</h2>
         <div style="display: flex; gap: 15px; flex-wrap: wrap;">
             <div class="form-group" style="flex: 1; min-width: 250px;">
                 <label>1. Selecciona Departamento:</label>
@@ -277,12 +277,45 @@
                             <td style="font-size: 14px; max-width: 250px;"><i>"${rep.observaciones || 'Sin texto'}"</i></td>
                             <td><strong style="color: #27ae60;">+${rep.avance_fisico_periodo}%</strong></td>
                             <td><strong style="color: #c0392b;">$${parseFloat(rep.avance_financiero_periodo).toLocaleString('es-MX')}</strong></td>
-                            <td><button class="btn-danger" onclick="borrarReporteSuperAdmin(${rep.id_reporte})">🗑️ Borrar</button></td>
+                            <td style="display: flex; gap: 5px;">
+                                <button class="btn-action" style="background:#f39c12;" onclick="editarReporteSuperAdmin(${rep.id_reporte}, ${rep.avance_fisico_periodo}, ${rep.avance_financiero_periodo})">✏️ Editar</button>
+                                <button class="btn-danger" onclick="borrarReporteSuperAdmin(${rep.id_reporte})">🗑️ Borrar</button>
+                            </td>
                         </tr>
                     `;
                 });
                 tbody.innerHTML = html;
             } catch(e) { tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:red;">Error de conexión.</td></tr>'; }
+        }
+
+        async function editarReporteSuperAdmin(idReporte, avanceFisicoActual, avanceFinancieroActual) {
+            let nuevoFisico = prompt("Ingresa el NUEVO porcentaje (%) de avance físico para este reporte:", avanceFisicoActual);
+            if (nuevoFisico === null) return; 
+
+            let nuevoFinanciero = prompt("Ingresa el NUEVO gasto financiero ($) para este reporte:", avanceFinancieroActual);
+            if (nuevoFinanciero === null) return; 
+
+            nuevoFisico = parseFloat(nuevoFisico);
+            nuevoFinanciero = parseFloat(nuevoFinanciero);
+
+            if (isNaN(nuevoFisico) || isNaN(nuevoFinanciero)) {
+                alert("Por favor, ingresa solo valores numéricos válidos.");
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/superadmin/reporte/' + idReporte, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ avance_fisico: nuevoFisico, avance_financiero: nuevoFinanciero })
+                });
+                const data = await res.json();
+                alert(data.mensaje);
+                
+                if(data.exito) cargarHistorialParaBorrar();
+            } catch(e) { 
+                alert('Error de conexión con el servidor.'); 
+            }
         }
 
         async function borrarReporteSuperAdmin(idReporte) {

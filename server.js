@@ -27,11 +27,10 @@ const storage = new CloudinaryStorage({
   params: {
     folder: 'poa_evidencias', 
     allowed_formats: ['jpg', 'png', 'jpeg', 'pdf'], 
-    resource_type: 'auto' // <--- SOLO TIENES QUE AGREGAR ESTA LÍNEA
+    resource_type: 'auto' 
   },
 });
 const upload = multer({ storage: storage });
-
 
 // 2. CONEXIÓN A BASE DE DATOS
 const pool = new Pool({
@@ -136,9 +135,7 @@ app.get('/api/historial/:codigo', async (req, res) => {
     }
 });
 
-// --- GUARDAR REPORTE ---
-// --- GUARDAR REPORTE (MODIFICADO PARA MÚLTIPLES ARCHIVOS) ---
-// Cambiamos .single() por .array() permitiendo hasta 5 archivos
+// --- GUARDAR REPORTE (MÚLTIPLES ARCHIVOS) ---
 app.post('/api/reportar', upload.array('evidencia', 5), async (req, res) => {
     const { id_actividad, mes, avance_fisico, avance_financiero, observaciones, encargado, correo } = req.body;
     
@@ -147,7 +144,6 @@ app.post('/api/reportar', upload.array('evidencia', 5), async (req, res) => {
     }
 
     try {
-        // 1. Verificación de Seguridad del Porcentaje
         const checkQuery = `SELECT COALESCE(SUM(avance_fisico_periodo), 0) as acumulado FROM REPORTES_AVANCE WHERE id_actividad = $1`;
         const checkResult = await pool.query(checkQuery, [id_actividad]);
         const avanceAcumulado = parseFloat(checkResult.rows[0].acumulado);
@@ -157,17 +153,11 @@ app.post('/api/reportar', upload.array('evidencia', 5), async (req, res) => {
             return res.status(400).json({ error: `Violación de límite. El avance total superaría el 100%. Te queda un máximo de ${100 - avanceAcumulado}% por reportar.` });
         }
 
-        // AQUÍ ESTÁ EL CAMBIO PARA MÚLTIPLES IMÁGENES
-        // req.files ahora es un arreglo con todos los archivos subidos
-        // Mapeamos los archivos para obtener sus URLs de Cloudinary y las unimos separadas por comas
         let urls_evidencia = null;
         if (req.files && req.files.length > 0) {
             urls_evidencia = req.files.map(file => file.path).join(',');
         }
 
-        // 3. Guardar en Base de Datos
-        // NOTA: Como ahora urls_evidencia guarda varias URLs separadas por coma, asegúrate
-        // que la columna 'url_evidencia_pdf' en tu base de datos Neon sea tipo TEXT (no un VARCHAR muy corto).
         const query = `
             INSERT INTO REPORTES_AVANCE 
             (id_actividad, mes_reportado, avance_fisico_periodo, avance_financiero_periodo, observaciones, url_evidencia_pdf, nombre_encargado, correo_contacto, estado_validacion)
@@ -183,6 +173,7 @@ app.post('/api/reportar', upload.array('evidencia', 5), async (req, res) => {
         res.status(500).json({ error: 'Error interno del servidor al intentar guardar' });
     }
 });
+
 // ==============================================================
 // --- RUTAS EXCLUSIVAS DEL SUPER ADMIN ---
 // ==============================================================
@@ -199,16 +190,31 @@ app.delete('/api/superadmin/reporte/:id', async (req, res) => {
     }
 });
 
-// 2. Modificar presupuesto de un proyecto
+// 2. Modificar el avance de un reporte específico (NUEVO)
+app.put('/api/superadmin/reporte/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { avance_fisico, avance_financiero } = req.body;
+        
+        await pool.query(
+            'UPDATE reportes_avance SET avance_fisico_periodo = $1, avance_financiero_periodo = $2 WHERE id_reporte = $3',
+            [avance_fisico, avance_financiero, id]
+        );
+        res.json({ exito: true, mensaje: 'Avance actualizado correctamente. El total del proyecto cambiará.' });
+    } catch (error) {
+        console.error("Error al actualizar reporte:", error);
+        res.status(500).json({ exito: false, mensaje: 'Error al actualizar el avance en la base de datos.' });
+    }
+});
+
+// 3. Modificar presupuesto de un proyecto
 app.put('/api/superadmin/presupuesto', async (req, res) => {
     try {
         const { codigo_proyecto, nuevo_presupuesto } = req.body;
-        // Buscamos el ID del proyecto
         const getProy = await pool.query('SELECT id_proyecto FROM PROYECTOS WHERE codigo_proyecto = $1', [codigo_proyecto]);
         if(getProy.rows.length === 0) return res.status(404).json({exito: false, mensaje: 'Proyecto no encontrado'});
         
         const id_proyecto = getProy.rows[0].id_proyecto;
-        // Actualizamos su presupuesto
         await pool.query('UPDATE ACTIVIDADES_PLANEADAS SET presupuesto_autorizado = $1 WHERE id_proyecto = $2', [nuevo_presupuesto, id_proyecto]);
         res.json({ exito: true, mensaje: 'Presupuesto actualizado exitosamente.' });
     } catch (error) {
@@ -217,15 +223,14 @@ app.put('/api/superadmin/presupuesto', async (req, res) => {
     }
 });
 
-// 3. Crear Departamento Nuevo
+// 4. Crear Departamento Nuevo
 app.post('/api/superadmin/departamento', async (req, res) => {
     try {
         const { nombre } = req.body;
-        // Busca el número máximo actual y le suma 1 para crear el ID
-        const maxId = await pool.query('SELECT COALESCE(MAX(id_dependencia), 0) + 1 as nuevo_id FROM DEPARTAMENTOS');
+        const maxId = await pool.query('SELECT COALESCE(MAX(id_dependencia), 0) + 1 as nuevo_id FROM departamentos');
         const nuevoId = maxId.rows[0].nuevo_id;
         
-        await pool.query('INSERT INTO DEPARTAMENTOS (id_dependencia, nombre) VALUES ($1, $2)', [nuevoId, nombre]);
+        await pool.query('INSERT INTO departamentos (id_dependencia, nombre) VALUES ($1, $2)', [nuevoId, nombre]);
         res.json({ exito: true, mensaje: `Departamento "${nombre}" creado con éxito.` });
     } catch (error) {
         console.error("Error al crear departamento:", error);
@@ -233,16 +238,14 @@ app.post('/api/superadmin/departamento', async (req, res) => {
     }
 });
 
-// 4. Crear Proyecto Nuevo Completo
+// 5. Crear Proyecto Nuevo Completo
 app.post('/api/superadmin/proyecto', async (req, res) => {
     try {
         const { id_dependencia, codigo, nombre, presupuesto } = req.body;
         
-        // 1. Buscamos una Meta General de ese departamento para anclarlo
         let meta = await pool.query("SELECT id_meta FROM METAS_GENERALES WHERE id_dependencia = $1 LIMIT 1", [id_dependencia]);
         let id_meta;
         
-        // Si no tiene meta, le creamos una de emergencia
         if (meta.rows.length === 0) {
             const nuevaMeta = await pool.query(
                 "INSERT INTO METAS_GENERALES (codigo_meta, descripcion, id_dependencia) VALUES ($1, $2, $3) RETURNING id_meta",
@@ -253,14 +256,12 @@ app.post('/api/superadmin/proyecto', async (req, res) => {
             id_meta = meta.rows[0].id_meta;
         }
 
-        // 2. Insertamos el Proyecto
         const proy = await pool.query(
             "INSERT INTO PROYECTOS (codigo_proyecto, nombre_proyecto, id_meta) VALUES ($1, $2, $3) RETURNING id_proyecto",
             [codigo, nombre, id_meta]
         );
         const id_proyecto = proy.rows[0].id_proyecto;
 
-        // 3. Insertamos su Actividad y Presupuesto
         await pool.query(
             "INSERT INTO ACTIVIDADES_PLANEADAS (codigo_actividad, descripcion, presupuesto_autorizado, id_proyecto) VALUES ($1, $2, $3, $4)",
             [`${codigo}-ACT`, 'Ejecución general (SuperAdmin)', presupuesto, id_proyecto]
@@ -272,47 +273,41 @@ app.post('/api/superadmin/proyecto', async (req, res) => {
         res.status(500).json({ exito: false, mensaje: 'Error, verifica que el código de proyecto no esté repetido.' });
     }
 });
-// 5. Borrar un Proyecto Completo (y todos sus reportes)
+
+// 6. Borrar un Proyecto Completo (y todos sus reportes)
 app.delete('/api/superadmin/proyecto/:codigo', async (req, res) => {
-    const client = await pool.connect(); // Usamos un cliente específico para la transacción
+    const client = await pool.connect(); 
     try {
         const { codigo } = req.params;
-        await client.query('BEGIN'); // Iniciar transacción
+        await client.query('BEGIN'); 
 
-        // 1. Obtener el ID del proyecto
         const proyRes = await client.query('SELECT id_proyecto FROM PROYECTOS WHERE codigo_proyecto = $1', [codigo]);
         
         if (proyRes.rows.length > 0) {
             const id_proyecto = proyRes.rows[0].id_proyecto;
-
-            // 2. Borrar reportes de ese proyecto
             await client.query('DELETE FROM REPORTES_AVANCE WHERE id_actividad IN (SELECT id_actividad FROM ACTIVIDADES_PLANEADAS WHERE id_proyecto = $1)', [id_proyecto]);
-            
-            // 3. Borrar actividades del proyecto
             await client.query('DELETE FROM ACTIVIDADES_PLANEADAS WHERE id_proyecto = $1', [id_proyecto]);
-            
-            // 4. Finalmente, borrar el proyecto
             await client.query('DELETE FROM PROYECTOS WHERE id_proyecto = $1', [id_proyecto]);
         }
 
-        await client.query('COMMIT'); // Guardar cambios
+        await client.query('COMMIT'); 
         res.json({ exito: true, mensaje: 'Proyecto y todos sus reportes eliminados correctamente.' });
     } catch (error) {
-        await client.query('ROLLBACK'); // Deshacer todo si hay error
+        await client.query('ROLLBACK'); 
         console.error("Error al borrar proyecto:", error);
         res.status(500).json({ exito: false, mensaje: 'Error al borrar proyecto en la base de datos.' });
     } finally {
-        client.release(); // Liberar el cliente
+        client.release(); 
     }
 });
-// 6. Borrar un Departamento Completo (y todos sus proyectos y reportes)
+
+// 7. Borrar un Departamento Completo (y todos sus proyectos y reportes)
 app.delete('/api/superadmin/departamento/:id', async (req, res) => {
     const client = await pool.connect();
     try {
         const { id } = req.params;
-        await client.query('BEGIN'); // Iniciamos la transacción segura
+        await client.query('BEGIN'); 
 
-        // 1. Borrar reportes
         await client.query(`
             DELETE FROM reportes_avance WHERE id_actividad IN (
                 SELECT a.id_actividad FROM actividades_planeadas a 
@@ -321,7 +316,6 @@ app.delete('/api/superadmin/departamento/:id', async (req, res) => {
                 WHERE m.id_dependencia = $1
             )`, [id]);
 
-        // 2. Borrar actividades
         await client.query(`
             DELETE FROM actividades_planeadas WHERE id_proyecto IN (
                 SELECT p.id_proyecto FROM proyectos p 
@@ -329,23 +323,18 @@ app.delete('/api/superadmin/departamento/:id', async (req, res) => {
                 WHERE m.id_dependencia = $1
             )`, [id]);
 
-        // 3. Borrar proyectos
         await client.query(`DELETE FROM proyectos WHERE id_meta IN (SELECT id_meta FROM metas_generales WHERE id_dependencia = $1)`, [id]);
-
-        // 4. Borrar metas
         await client.query(`DELETE FROM metas_generales WHERE id_dependencia = $1`, [id]);
-
-        // 5. Borrar departamento (AQUÍ ESTÁ LA CLAVE: Usamos la tabla 'departamentos')
         await client.query(`DELETE FROM departamentos WHERE id_dependencia = $1`, [id]); 
 
-        await client.query('COMMIT'); // Si todo salió bien, guardamos los cambios
+        await client.query('COMMIT'); 
         res.json({ exito: true, mensaje: 'Departamento, metas, proyectos y reportes eliminados para siempre.' });
     } catch (error) {
-        await client.query('ROLLBACK'); // Si falla, deshacemos todo para no romper la BD
+        await client.query('ROLLBACK'); 
         console.error("Error al borrar departamento:", error);
         res.status(500).json({ exito: false, mensaje: 'Error al borrar departamento en la base de datos.' });
     } finally {
-        client.release(); // Siempre liberamos la conexión
+        client.release(); 
     }
 });
 
