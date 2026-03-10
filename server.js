@@ -272,6 +272,49 @@ app.post('/api/superadmin/proyecto', async (req, res) => {
         res.status(500).json({ exito: false, mensaje: 'Error, verifica que el código de proyecto no esté repetido.' });
     }
 });
+// 5. Borrar un Proyecto Completo (y todos sus reportes)
+app.delete('/api/superadmin/proyecto/:codigo', async (req, res) => {
+    try {
+        const { codigo } = req.params;
+        await pool.query(`
+            DO $$
+            DECLARE v_id_proyecto INT;
+            BEGIN
+                SELECT id_proyecto INTO v_id_proyecto FROM PROYECTOS WHERE codigo_proyecto = $1;
+                IF v_id_proyecto IS NOT NULL THEN
+                    DELETE FROM REPORTES_AVANCE WHERE id_actividad IN (SELECT id_actividad FROM ACTIVIDADES_PLANEADAS WHERE id_proyecto = v_id_proyecto);
+                    DELETE FROM ACTIVIDADES_PLANEADAS WHERE id_proyecto = v_id_proyecto;
+                    DELETE FROM PROYECTOS WHERE id_proyecto = v_id_proyecto;
+                END IF;
+            END $$;
+        `, [codigo]);
+        res.json({ exito: true, mensaje: 'Proyecto y todos sus reportes eliminados correctamente.' });
+    } catch (error) {
+        console.error("Error al borrar proyecto:", error);
+        res.status(500).json({ exito: false, mensaje: 'Error al borrar proyecto en la base de datos.' });
+    }
+});
+
+// 6. Borrar un Departamento Completo (y todos sus proyectos y reportes)
+app.delete('/api/superadmin/departamento/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        await pool.query(`
+            DO $$
+            BEGIN
+                DELETE FROM REPORTES_AVANCE WHERE id_actividad IN (SELECT a.id_actividad FROM ACTIVIDADES_PLANEADAS a JOIN PROYECTOS p ON a.id_proyecto = p.id_proyecto JOIN METAS_GENERALES m ON p.id_meta = m.id_meta WHERE m.id_dependencia = $1);
+                DELETE FROM ACTIVIDADES_PLANEADAS WHERE id_proyecto IN (SELECT p.id_proyecto FROM PROYECTOS p JOIN METAS_GENERALES m ON p.id_meta = m.id_meta WHERE m.id_dependencia = $1);
+                DELETE FROM PROYECTOS WHERE id_meta IN (SELECT id_meta FROM METAS_GENERALES WHERE id_dependencia = $1);
+                DELETE FROM METAS_GENERALES WHERE id_dependencia = $1;
+                DELETE FROM DEPARTAMENTOS WHERE id_dependencia = $1;
+            END $$;
+        `, [id]);
+        res.json({ exito: true, mensaje: 'Departamento, metas, proyectos y reportes eliminados para siempre.' });
+    } catch (error) {
+        console.error("Error al borrar departamento:", error);
+        res.status(500).json({ exito: false, mensaje: 'Error al borrar departamento en la base de datos.' });
+    }
+});
 
 // 4. ENCENDER SERVIDOR
 const port = process.env.PORT || 3000;
