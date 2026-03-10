@@ -183,6 +183,95 @@ app.post('/api/reportar', upload.array('evidencia', 5), async (req, res) => {
         res.status(500).json({ error: 'Error interno del servidor al intentar guardar' });
     }
 });
+// ==============================================================
+// --- RUTAS EXCLUSIVAS DEL SUPER ADMIN ---
+// ==============================================================
+
+// 1. Borrar un reporte específico
+app.delete('/api/superadmin/reporte/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        await pool.query('DELETE FROM REPORTES_AVANCE WHERE id_reporte = $1', [id]);
+        res.json({ exito: true, mensaje: 'Reporte borrado correctamente.' });
+    } catch (error) {
+        console.error("Error al borrar reporte:", error);
+        res.status(500).json({ exito: false, mensaje: 'Error al borrar en la base de datos.' });
+    }
+});
+
+// 2. Modificar presupuesto de un proyecto
+app.put('/api/superadmin/presupuesto', async (req, res) => {
+    try {
+        const { codigo_proyecto, nuevo_presupuesto } = req.body;
+        // Buscamos el ID del proyecto
+        const getProy = await pool.query('SELECT id_proyecto FROM PROYECTOS WHERE codigo_proyecto = $1', [codigo_proyecto]);
+        if(getProy.rows.length === 0) return res.status(404).json({exito: false, mensaje: 'Proyecto no encontrado'});
+        
+        const id_proyecto = getProy.rows[0].id_proyecto;
+        // Actualizamos su presupuesto
+        await pool.query('UPDATE ACTIVIDADES_PLANEADAS SET presupuesto_autorizado = $1 WHERE id_proyecto = $2', [nuevo_presupuesto, id_proyecto]);
+        res.json({ exito: true, mensaje: 'Presupuesto actualizado exitosamente.' });
+    } catch (error) {
+        console.error("Error al modificar presupuesto:", error);
+        res.status(500).json({ exito: false, mensaje: 'Error en la base de datos.' });
+    }
+});
+
+// 3. Crear Departamento Nuevo
+app.post('/api/superadmin/departamento', async (req, res) => {
+    try {
+        const { nombre } = req.body;
+        // Busca el número máximo actual y le suma 1 para crear el ID
+        const maxId = await pool.query('SELECT COALESCE(MAX(id_dependencia), 0) + 1 as nuevo_id FROM DEPARTAMENTOS');
+        const nuevoId = maxId.rows[0].nuevo_id;
+        
+        await pool.query('INSERT INTO DEPARTAMENTOS (id_dependencia, nombre) VALUES ($1, $2)', [nuevoId, nombre]);
+        res.json({ exito: true, mensaje: `Departamento "${nombre}" creado con éxito.` });
+    } catch (error) {
+        console.error("Error al crear departamento:", error);
+        res.status(500).json({ exito: false, mensaje: 'Error en la base de datos.' });
+    }
+});
+
+// 4. Crear Proyecto Nuevo Completo
+app.post('/api/superadmin/proyecto', async (req, res) => {
+    try {
+        const { id_dependencia, codigo, nombre, presupuesto } = req.body;
+        
+        // 1. Buscamos una Meta General de ese departamento para anclarlo
+        let meta = await pool.query("SELECT id_meta FROM METAS_GENERALES WHERE id_dependencia = $1 LIMIT 1", [id_dependencia]);
+        let id_meta;
+        
+        // Si no tiene meta, le creamos una de emergencia
+        if (meta.rows.length === 0) {
+            const nuevaMeta = await pool.query(
+                "INSERT INTO METAS_GENERALES (codigo_meta, descripcion, id_dependencia) VALUES ($1, $2, $3) RETURNING id_meta",
+                [`${codigo}-GEN`, 'Meta generada por SuperAdmin', id_dependencia]
+            );
+            id_meta = nuevaMeta.rows[0].id_meta;
+        } else {
+            id_meta = meta.rows[0].id_meta;
+        }
+
+        // 2. Insertamos el Proyecto
+        const proy = await pool.query(
+            "INSERT INTO PROYECTOS (codigo_proyecto, nombre_proyecto, id_meta) VALUES ($1, $2, $3) RETURNING id_proyecto",
+            [codigo, nombre, id_meta]
+        );
+        const id_proyecto = proy.rows[0].id_proyecto;
+
+        // 3. Insertamos su Actividad y Presupuesto
+        await pool.query(
+            "INSERT INTO ACTIVIDADES_PLANEADAS (codigo_actividad, descripcion, presupuesto_autorizado, id_proyecto) VALUES ($1, $2, $3, $4)",
+            [`${codigo}-ACT`, 'Ejecución general (SuperAdmin)', presupuesto, id_proyecto]
+        );
+
+        res.json({ exito: true, mensaje: `Proyecto ${codigo} creado y anclado correctamente.` });
+    } catch (error) {
+        console.error("Error al crear proyecto:", error);
+        res.status(500).json({ exito: false, mensaje: 'Error, verifica que el código de proyecto no esté repetido.' });
+    }
+});
 
 // 4. ENCENDER SERVIDOR
 const port = process.env.PORT || 3000;
