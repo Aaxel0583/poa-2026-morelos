@@ -136,7 +136,7 @@ app.get('/api/historial/:codigo', async (req, res) => {
 });
 
 // --- GUARDAR REPORTE (MÚLTIPLES ARCHIVOS) ---
-app.post('/api/reportar', upload.array('evidencia', 5), async (req, res) => {
+app.post('/api/reportar', upload.array('evidencia', 10), async (req, res) => {
     const { id_actividad, mes, avance_fisico, avance_financiero, observaciones, encargado, correo } = req.body;
     
     if (!id_actividad || !mes || !encargado || !correo) {

@@ -240,6 +240,13 @@
             
             // --- NUEVA LÓGICA PARA MÚLTIPLES ARCHIVOS ---
             const fileInput = document.getElementById('archivoEvidencia');
+            
+            // NUEVO: Validación de límite de archivos
+            if (fileInput.files.length > 10) {
+                alert(`Has seleccionado ${fileInput.files.length} archivos. El máximo permitido es 10 por reporte.`);
+                return; // Detiene el envío
+            }
+
             if (fileInput.files.length > 0) {
                 // Recorremos todos los archivos seleccionados y los agregamos al FormData
                 for (let i = 0; i < fileInput.files.length; i++) {
