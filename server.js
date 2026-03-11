@@ -27,7 +27,12 @@ const storage = new CloudinaryStorage({
   params: {
     folder: 'poa_evidencias', 
     allowed_formats: ['jpg', 'png', 'jpeg', 'pdf'], 
-    resource_type: 'auto' 
+    resource_type: 'auto',
+    // --- NUEVO: Optimización automática de imágenes ---
+    transformation: [
+      { width: 1280, crop: 'limit' }, 
+      { quality: 'auto', fetch_format: 'auto' }
+    ]
   },
 });
 const upload = multer({ storage: storage });
