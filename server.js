@@ -43,6 +43,21 @@ const pool = new Pool({
   ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
 });
 
+// 1. Evita que el servidor se caiga si se pierde la conexión
+pool.on('error', (err, client) => {
+  console.error('Error inesperado en segundo plano con PostgreSQL:', err);
+});
+
+// 2. Verifica que la conexión funciona al arrancar el servidor
+pool.connect((err, client, release) => {
+  if (err) {
+    console.error('Error al intentar conectar con la base de datos:', err.stack);
+  } else {
+    console.log('¡Conexión exitosa a la base de datos PostgreSQL!');
+    release(); // Libera el cliente
+  }
+});
+
 // 3. RUTAS DEL SISTEMA
 
 // ---> Redireccionar la entrada principal al Login <---
