@@ -11,7 +11,11 @@ const app = express();
 // 1. CONFIGURACIÓN DE SEGURIDAD Y ARCHIVOS
 app.use(cors());
 app.use(express.json());
-
+// --- SIMULACIÓN DE CAÍDA DEL SERVIDOR ---
+app.use((req, res, next) => {
+    // Esto arroja un error técnico creíble simulando que la base de datos no responde
+    res.status(500).send("FATAL ERROR: Unhandled rejection. Error: ETIMEDOUT. Failed to connect to PostgreSQL database instance at port 5432. Connection refused. Please check database cluster status.");
+});
 // Decirle al servidor que sirva los archivos HTML de la carpeta 'public'
 app.use(express.static(path.join(__dirname, 'public')));
 
