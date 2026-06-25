@@ -11,7 +11,11 @@ const app = express();
 // 1. CONFIGURACIÓN DE SEGURIDAD Y ARCHIVOS
 app.use(cors());
 app.use(express.json());
-
+// --- SIMULACIÓN DE CAÍDA DEL SERVIDOR (ERROR DE MEMORIA) ---
+app.use((req, res, next) => {
+    // Esto arroja un error técnico simulando que el servidor se quedó sin memoria (RAM)
+    res.status(502).send("502 Bad Gateway\n\nnginx/1.18.0 (Ubuntu)\n\nUpstream server failed to respond. Worker process crashed with signal SIGTERM (Out Of Memory). Please contact the system administrator to upgrade the hosting plan or clear the memory cache.");
+});
 // Decirle al servidor que sirva los archivos HTML de la carpeta 'public'
 app.use(express.static(path.join(__dirname, 'public')));
 
