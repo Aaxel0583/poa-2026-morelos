@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tablero Ejecutivo - Presidencia</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background-color: #1a1a2e; color: white; text-align: center; padding: 20px; }
+        .dashboard-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 30px; margin-top: 30px; }
+        .card { background-color: #16213e; padding: 20px; border-radius: 15px; box-shadow: 0 0 20px rgba(0,0,0,0.5); width: 45%; min-width: 300px; }
+        h1 { color: #e94560; margin-bottom: 5px; }
+        p { color: #a0a0a0; margin-top: 0; }
+        .stat-number { font-size: 2em; font-weight: bold; color: #4ecca3; }
+        .nav { margin-bottom: 20px; }
+        a { color: #4ecca3; text-decoration: none; font-weight: bold; border: 1px solid #4ecca3; padding: 8px 15px; border-radius: 5px; }
+        a:hover { background-color: #4ecca3; color: #1a1a2e; }
+    </style>
+</head>
+<body>
+    <script>
+    // 1. Verificar si hay usuario
+    const usuarioGuardado = localStorage.getItem('usuarioPOA');
+    if (!usuarioGuardado) {
+        window.location.href = 'login.html'; 
+    } else {
+        const usuario = JSON.parse(usuarioGuardado);
+        if (usuario.rol !== 'ADMIN') {
+            alert("⛔ ACCESO DENEGADO: Solo Presidencia puede ver esto.");
+            window.location.href = 'index.html'; 
+        }
+    }
+    </script>
+
+    <div class="nav" style="display: flex; justify-content: center; gap: 15px;">
+        <a href="index.html">← Ver Detalle por Proyecto</a>
+        <a href="reporte.html" style="background-color: #3498db; color: white; border-color: #3498db;">📊 Generar Reporte PDF/Excel</a>
+    </div>
+
+    <h1>Despacho de Presidencia</h1>
+    <p>Monitor de Rendimiento Institucional POA 2026</p>
+
+    <div class="dashboard-container">
+        <div class="card">
+            <h3>Comparativa de Eficiencia</h3>
+            <canvas id="graficaGeneral"></canvas>
+        </div>
+
+        <div class="card">
+            <h3>Presupuesto Ejercido Global</h3>
+            <div style="margin-top: 50px;">
+                <div id="dineroTotal" class="stat-number">Cargando...</div>
+                <p>MXN Gastados al momento</p>
+                <hr style="border-color: #333; margin: 20px 0;">
+                <div id="lider" style="font-size: 1.2em;">🏆 Área Líder: ...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function cargarTableroPresidencia() {
+            try {
+                const resp = await fetch('/api/presidencia');
+                const datos = await resp.json();
+
+                const departamentos = datos.map(d => d.departamento);
+                const calificaciones = datos.map(d => parseFloat(d.avance_promedio_fisico) || 0);
+                const gastos = datos.map(d => parseFloat(d.gastado_total_departamento) || 0);
+
+                const ctx = document.getElementById('graficaGeneral').getContext('2d');
+                new Chart(ctx, {
+                    type: 'polarArea', 
+                    data: {
+                        labels: departamentos,
+                        datasets: [{
+                            label: 'Calificación Global (0-100)',
+                            data: calificaciones,
+                            backgroundColor: [
+                                'rgba(233, 69, 96, 0.6)', 
+                                'rgba(78, 204, 163, 0.6)', 
+                                'rgba(255, 206, 86, 0.6)', 
+                                'rgba(54, 162, 235, 0.6)'  
+                            ],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        scales: { r: { suggestedMin: 0, suggestedMax: 100, grid: { color: '#333' } } },
+                        plugins: { legend: { position: 'bottom', labels: { color: 'white' } } }
+                    }
+                });
+
+                const totalGastado = gastos.reduce((a, b) => a + b, 0);
+                document.getElementById('dineroTotal').innerText = '$' + totalGastado.toLocaleString('es-MX');
+
+                let mejorIndice = 0;
+                let mejorCalif = 0;
+                calificaciones.forEach((calif, index) => {
+                    if (parseFloat(calif) > mejorCalif) {
+                        mejorCalif = parseFloat(calif);
+                        mejorIndice = index;
+                    }
+                });
+                
+                if (departamentos.length > 0 && mejorCalif > 0) {
+                    document.getElementById('lider').innerText = `🏆 Mejor Desempeño: ${departamentos[mejorIndice]} (${mejorCalif}%)`;
+                } else {
+                    document.getElementById('lider').innerText = `🏆 Aún no hay avances registrados`;
+                }
+
+            } catch (error) {
+                console.error(error);
+                alert("Error cargando datos de presidencia");
+            }
+        }
+
+        cargarTableroPresidencia();
+    </script>
+
+</body>
+</html>

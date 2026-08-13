@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Reportar Avance - POA 2026</title>
+    <style>
+        /* Fondo verde institucional y ajuste de fuente base */
+        body { font-family: 'Segoe UI', sans-serif; background-color: #3E6257; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; font-size: 16px;}
+        
+        /* Tarjeta un poco más amplia para acomodar letras grandes */
+        .card { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.3); width: 100%; max-width: 650px; }
+        
+        /* Contenedor del Logo */
+        .logo-container { text-align: center; margin-bottom: 20px; }
+        .logo-container img { max-width: 140px; height: auto; }
+
+        /* Textos principales */
+        h2 { text-align: center; color: #2c3e50; margin-top: 0; font-weight: bold; font-size: 28px; }
+        .subtitulo { text-align: center; color: #34495e; font-size: 17px; font-weight: bold; margin-bottom: 25px; }
+
+        /* Estilos para las etiquetas (preguntas más grandes y en negrita) */
+        label { font-weight: bold; color: #2c3e50; display: block; margin-top: 15px; font-size: 17px; }
+        
+        /* Estilos para los campos de respuesta (fondo gris y texto grande) */
+        input, select, textarea { 
+            width: 100%; 
+            padding: 12px; 
+            margin: 8px 0 20px 0; 
+            border: 1px solid #bdc3c7; 
+            border-radius: 6px; 
+            box-sizing: border-box; 
+            background-color: #e0e0e0; 
+            color: #2c3e50;
+            font-size: 16px;
+        }
+        
+        input:focus, select:focus, textarea:focus {
+            background-color: #d5d5d5; 
+            border-color: #3498db;
+            outline: none;
+        }
+
+        /* --- BOTÓN AHORA EN ROJO INSTITUCIONAL --- */
+        button.primary { 
+            width: 100%; 
+            background-color: #e74c3c; /* Rojo */
+            color: white; 
+            padding: 15px; 
+            border: none; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            font-size: 18px; 
+            font-weight: bold; 
+            margin-top: 10px; 
+            transition: 0.3s;
+        }
+        button.primary:hover { 
+            background-color: #c0392b; /* Rojo más oscuro al pasar el mouse */
+        }
+        /* ----------------------------------------- */
+        
+        .presupuesto-box { background-color: #e8f8f5; border-left: 5px solid #1abc9c; padding: 15px; margin-bottom: 20px; display: none; line-height: 1.6; font-size: 16px;}
+    </style>
+</head>
+<body>
+    <div class="card">
+        
+        <div class="logo-container"> 
+            <img src="logo.jpeg" alt="Logo POA"> 
+        </div>
+
+        <h2>Envío de Avance POA</h2>
+        <p class="subtitulo">Por favor, llena tus datos para registrar el avance mensual.</p>
+        
+        <form id="formularioPOA">
+            <label>Nombre del Encargado / Responsable:</label>
+            <input type="text" id="encargado" placeholder="Ej. Juan Pérez - Director" required>
+
+            <label>Correo Electrónico Institucional:</label>
+            <input type="email" id="correo" placeholder="ejemplo@morelos.gob.mx" required>
+
+            <hr style="border: 0; border-top: 1px solid #ddd; margin: 25px 0;">
+
+            <label>Selecciona tu Departamento:</label>
+            <select id="departamento" onchange="cargarProyectos()" required>
+                <option value="">-- Cargando departamentos... --</option>
+            </select>
+
+            <label>Proyecto a Reportar:</label>
+            <select id="actividad" onchange="mostrarPresupuesto()" required disabled>
+                <option value="">-- Primero selecciona un departamento --</option>
+            </select>
+
+            <div id="cajaPresupuesto" class="presupuesto-box">
+                <strong>Presupuesto Autorizado Anual:</strong> $<span id="lblAutorizado">0</span><br>
+                <strong>Dinero Gastado Hasta Ahora:</strong> $<span id="lblGastado">0</span><br>
+                <strong style="color: #c0392b; margin-top: 5px; display: inline-block;">Avance Físico Acumulado: <span id="lblFisico">0</span>%</strong>
+            </div>
+
+            <label>Mes que se reporta:</label>
+            <select id="mes">
+                <option value="Enero">Enero</option>
+                <option value="Febrero">Febrero</option>
+                <option value="Marzo">Marzo</option>
+                <option value="Abril">Abril</option>
+                <option value="Mayo">Mayo</option>
+                <option value="Junio">Junio</option>
+                <option value="Julio">Julio</option>
+                <option value="Agosto">Agosto</option>
+                <option value="Septiembre">Septiembre</option>
+                <option value="Octubre">Octubre</option>
+                <option value="Noviembre">Noviembre</option>
+                <option value="Diciembre">Diciembre</option>
+            </select>
+
+            <label>Avance Físico de ESTE MES (Sólo lo avanzado ahora):</label>
+            <input type="number" id="fisico" min="0" placeholder="Ej. 15" required>
+
+            <label>Dinero Gastado ESTE MES ($ MXN):</label>
+            <input type="number" step="0.01" id="financiero" min="0" placeholder="Ej. 5000.00" required>
+
+            <label>Observaciones / Justificación:</label>
+            <textarea id="obs" placeholder="Describe brevemente los logros o si te pasaste del presupuesto, explica por qué..."></textarea>
+
+            <label>Evidencias (Puedes seleccionar varias fotos o PDFs):</label>
+            <input type="file" id="archivoEvidencia" accept=".pdf, .jpg, .png, .jpeg" multiple>
+
+            <button type="submit" class="primary">Enviar Reporte Oficial</button>
+        </form>
+    </div>
+
+    <script>
+        let proyectosActuales = [];
+
+        // 1. Cargar departamentos al iniciar
+        async function cargarDepartamentos() {
+            try {
+                const resp = await fetch('/api/departamentos');
+                const data = await resp.json();
+                const select = document.getElementById('departamento');
+                select.innerHTML = '<option value="">-- Selecciona el departamento --</option>';
+                data.forEach(d => {
+                    select.innerHTML += `<option value="${d.id_dependencia}">${d.nombre}</option>`;
+                });
+            } catch (error) {
+                console.error("Error al cargar departamentos:", error);
+            }
+        }
+        cargarDepartamentos();
+
+        // 2. Cargar proyectos cuando elige departamento
+        async function cargarProyectos() {
+            const idDep = document.getElementById('departamento').value;
+            const selectAct = document.getElementById('actividad');
+            document.getElementById('cajaPresupuesto').style.display = 'none';
+
+            if (!idDep) {
+                selectAct.innerHTML = '<option value="">-- Primero selecciona un departamento --</option>';
+                selectAct.disabled = true;
+                return;
+            }
+
+            selectAct.disabled = false;
+            selectAct.innerHTML = '<option value="">Cargando proyectos...</option>';
+            
+            try {
+                const resp = await fetch(`/api/actividades/${idDep}`);
+                proyectosActuales = await resp.json();
+                
+                selectAct.innerHTML = '<option value="">-- Selecciona tu proyecto --</option>';
+                proyectosActuales.forEach(p => {
+                    selectAct.innerHTML += `<option value="${p.id_actividad}">${p.codigo_proyecto} - ${p.nombre_proyecto}</option>`;
+                });
+            } catch (error) {
+                console.error("Error al cargar proyectos:", error);
+                selectAct.innerHTML = '<option value="">Error al cargar datos</option>';
+            }
+        }
+
+        // 3. Mostrar presupuesto, avance y candado de 100%
+        function mostrarPresupuesto() {
+            const idAct = document.getElementById('actividad').value;
+            const caja = document.getElementById('cajaPresupuesto');
+            const inputFisico = document.getElementById('fisico');
+            
+            if (!idAct) { caja.style.display = 'none'; return; }
+
+            const proyecto = proyectosActuales.find(p => p.id_actividad == idAct);
+            if (proyecto) {
+                // Mostrar dinero (Formateado con comas)
+                document.getElementById('lblAutorizado').innerText = parseFloat(proyecto.presupuesto_autorizado).toLocaleString('es-MX');
+                document.getElementById('lblGastado').innerText = parseFloat(proyecto.gastado).toLocaleString('es-MX');
+                
+                // CALCULAR CANDADO FÍSICO
+                const acumulado = parseFloat(proyecto.fisico_acumulado || 0);
+                const restante = 100 - acumulado;
+                
+                document.getElementById('lblFisico').innerText = acumulado;
+                
+                inputFisico.max = restante;
+                inputFisico.placeholder = `Queda un ${restante}% disponible por reportar`;
+                
+                if(restante <= 0) {
+                    inputFisico.disabled = true;
+                    inputFisico.placeholder = "Este proyecto ya alcanzó el 100%";
+                    inputFisico.value = "";
+                } else {
+                    inputFisico.disabled = false;
+                }
+                
+                caja.style.display = 'block';
+            }
+        }
+
+        // 4. Enviar 
+        document.getElementById('formularioPOA').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const inputFisico = document.getElementById('fisico');
+            const valorIngresado = parseFloat(inputFisico.value);
+            const maxPermitido = parseFloat(inputFisico.max);
+            const inputFinanciero = document.getElementById('financiero');
+            const gastoIngresado = parseFloat(inputFinanciero.value);
+
+            if (isNaN(valorIngresado) || valorIngresado < 0) {
+                alert('ERROR: El avance físico no puede ser un número negativo.');
+                inputFisico.focus();
+                return;
+            }
+
+            if (isNaN(gastoIngresado) || gastoIngresado < 0) {
+                alert('ERROR: El dinero gastado no puede ser un número negativo.');
+                inputFinanciero.focus();
+                return;
+            }
+
+            if (valorIngresado > maxPermitido) {
+                alert(`ERROR: No puedes reportar ${valorIngresado}%.\nEl máximo permitido para este proyecto es ${maxPermitido}%.`);
+                inputFisico.value = maxPermitido; 
+                inputFisico.focus();
+                return; 
+            }
+
+            if (!confirm("¿Estás seguro de que la información es correcta? Esta acción no se puede deshacer.")) return;
+
+            const formData = new FormData();
+            formData.append('encargado', document.getElementById('encargado').value);
+            formData.append('correo', document.getElementById('correo').value);
+            formData.append('id_actividad', document.getElementById('actividad').value);
+            formData.append('mes', document.getElementById('mes').value);
+            formData.append('avance_fisico', valorIngresado); 
+            formData.append('avance_financiero', document.getElementById('financiero').value);
+            formData.append('observaciones', document.getElementById('obs').value);
+            
+            // --- NUEVA LÓGICA PARA MÚLTIPLES ARCHIVOS ---
+            const fileInput = document.getElementById('archivoEvidencia');
+            
+            // NUEVO: Validación de límite de archivos
+            if (fileInput.files.length > 10) {
+                alert(`Has seleccionado ${fileInput.files.length} archivos. El máximo permitido es 10 por reporte.`);
+                return; // Detiene el envío
+            }
+
+            if (fileInput.files.length > 0) {
+                // Recorremos todos los archivos seleccionados y los agregamos al FormData
+                for (let i = 0; i < fileInput.files.length; i++) {
+                    formData.append('evidencia', fileInput.files[i]);
+                }
+            }
+
+            try {
+                // Se agregó feedback visual al botón de enviar mientras se suben los archivos
+                const submitBtn = document.querySelector('button[type="submit"]');
+                const btnTextOriginal = submitBtn.innerText;
+                submitBtn.innerText = "Enviando... por favor espera";
+                submitBtn.disabled = true;
+
+                const resp = await fetch('/api/reportar', { method: 'POST', body: formData });
+                
+                if (resp.ok) {
+                    alert('Reporte enviado con éxito al Sistema Central. Gracias.');
+                    window.location.reload(); 
+                } else { 
+                    const errorData = await resp.json();
+                    alert('Error al guardar: ' + (errorData.error || 'Desconocido')); 
+                    submitBtn.innerText = btnTextOriginal;
+                    submitBtn.disabled = false;
+                }
+            } catch (err) { 
+                alert('Error de conexión con el servidor. Revisa tu internet.'); 
+                const submitBtn = document.querySelector('button[type="submit"]');
+                submitBtn.innerText = "Enviar Reporte Oficial";
+                submitBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

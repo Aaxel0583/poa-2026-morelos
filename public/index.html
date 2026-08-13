@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POA 2026 - Tablero de Control</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background-color: #f4f6f8; margin: 0; padding: 20px; }
+        
+        /* --- FONDO VERDE INSTITUCIONAL PARA LA BARRA --- */
+        .header { background-color: #3E6257; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        
+        .container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        @media (max-width: 1024px) { .container { grid-template-columns: 1fr; } }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #ecf0f1; color: #2c3e50; }
+        .progress-bar { height: 10px; background-color: #eee; border-radius: 5px; overflow: hidden; margin-top: 5px; }
+        .progress-fill { height: 100%; background-color: #27ae60; transition: width 0.5s ease; }
+        
+        h2 { margin-top: 0; color: #333; }
+        
+        /* --- ESTILOS MODERNOS PARA FILTROS --- */
+        .filtros-container {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            flex-wrap: wrap;
+            align-items: flex-end;
+            border-left: 5px solid #3E6257;
+        }
+        .filtro-item { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 250px; }
+        .filtro-item label { font-weight: bold; font-size: 0.9em; color: #34495e; }
+        .filtro-item input, .filtro-item select {
+            padding: 12px;
+            border: 1px solid #bdc3c7;
+            border-radius: 5px;
+            font-size: 15px;
+            outline: none;
+        }
+        .filtro-item input:focus, .filtro-item select:focus { border-color: #3E6257; }
+
+        .btn-logout { background:#c0392b; color:white; padding:8px 15px; border:none; cursor:pointer; border-radius: 4px; font-weight: bold; }
+        .btn-logout:hover { background:#a53125; }
+        .btn-evidencia { background-color: #e74c3c; color: white; padding: 6px 12px; text-decoration: none; border-radius: 4px; font-size: 0.85em; display: inline-block; margin-left: 5px; margin-bottom: 5px; font-weight: bold; transition: 0.2s;}
+        .btn-evidencia:hover { background-color: #c0392b; }
+        .btn-historial { background-color: #8e44ad; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.9em; transition: 0.3s; margin-bottom: 5px;}
+        .btn-historial:hover { background-color: #732d91; }
+    </style>
+</head>
+<body>
+    <script>
+        const usuarioGuardado = localStorage.getItem('usuarioPOA');
+        if (!usuarioGuardado) {
+            window.location.href = 'login.html';
+        } else {
+            const usuario = JSON.parse(usuarioGuardado);
+            if (usuario.rol !== 'ADMIN') {
+                window.location.href = 'login.html';
+            }
+        }
+
+        function cerrarSesion() {
+            localStorage.removeItem('usuarioPOA');
+            window.location.href = 'login.html';
+        }
+    </script>
+
+    <div style="text-align: right; padding: 15px; background-color: white; border-bottom: 1px solid #ddd; margin: -20px -20px 20px -20px;">
+        <a href="presidencia.html" style="background-color: #3E6257; color: white; padding: 8px 15px; text-decoration: none; border-radius: 5px; font-weight: bold; margin-right: 10px;">
+            Ver Resumen Presidencia
+        </a>
+        <button onclick="cerrarSesion()" class="btn-logout">
+            Cerrar Sesión
+        </button>
+    </div>
+
+    <div class="header">
+        <h1>Sistema de Seguimiento POA 2026</h1>
+        <p>H. Ayuntamiento de Morelos, Zacatecas - Panel de Administración Central</p>
+    </div>
+
+    <div class="filtros-container">
+        <div class="filtro-item">
+            <label for="filtroDep">Filtrar por Departamento:</label>
+            <select id="filtroDep" onchange="aplicarFiltros()">
+                <option value="TODOS">-- Mostrar todos los Departamentos --</option>
+            </select>
+        </div>
+        <div class="filtro-item">
+            <label for="txtBuscar">Buscar Proyecto (Nombre o Código):</label>
+            <input type="text" id="txtBuscar" placeholder="Ej: Obras, ALC-P01, Bacheo..." oninput="aplicarFiltros()">
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="card">
+            <h2>Avance Físico por Proyecto</h2>
+            <canvas id="graficaAvance"></canvas>
+        </div>
+
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 15px;">
+                <h2 style="margin-bottom: 0;">Detalle Financiero y Físico</h2>
+                <div>
+                    <label for="ordenarPor" style="font-weight: bold; font-size: 0.9em; color: #34495e; margin-right: 10px;">Ordenar por:</label>
+                    <select id="ordenarPor" onchange="aplicarFiltros()" style="padding: 8px; border: 1px solid #bdc3c7; border-radius: 5px; font-size: 14px; outline: none;">
+                        <option value="defecto">Orden por Defecto</option>
+                        <option value="fisico_max">Avance Físico (Mayor a Menor)</option>
+                        <option value="fisico_min">Avance Físico (Menor a Mayor)</option>
+                        <option value="gastado_max">Presupuesto Gastado (Mayor a Menor)</option>
+                        <option value="gastado_min">Presupuesto Gastado (Menor a Mayor)</option>
+                    </select>
+                </div>
+            </div>
+            <div style="overflow-x: auto;">
+                <table id="tablaDatos">
+                    <thead>
+                        <tr>
+                            <th>Proyecto</th>
+                            <th>Avance Físico</th>
+                            <th>Presupuesto Gastado</th>
+                            <th style="text-align: center;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let todosLosDatos = [];
+        let chartInstance = null;
+
+        async function cargarDatos() {
+            try {
+                const respDeptos = await fetch('/api/departamentos');
+                const deptos = await respDeptos.json();
+                const selectDep = document.getElementById('filtroDep');
+                deptos.forEach(dep => {
+                    let opt = document.createElement('option');
+                    opt.value = dep.nombre;
+                    opt.innerText = dep.nombre;
+                    selectDep.appendChild(opt);
+                });
+
+                const respuesta = await fetch('/api/tablero');
+                todosLosDatos = await respuesta.json();
+                aplicarFiltros();
+            } catch (error) {
+                console.error("Error cargando datos:", error);
+                document.querySelector('#tablaDatos tbody').innerHTML = '<tr><td colspan="4" style="text-align:center; color:red; font-weight:bold;">Error de conexión con el servidor.</td></tr>';
+            }
+        }
+
+        function aplicarFiltros() {
+            const deptoSeleccionado = document.getElementById('filtroDep').value;
+            const textoBusqueda = document.getElementById('txtBuscar').value.toLowerCase();
+            const ordenSeleccionado = document.getElementById('ordenarPor').value; // Obtenemos el tipo de orden
+
+            let datosFiltrados = todosLosDatos.filter(dato => {
+                const pasaDepto = (deptoSeleccionado === 'TODOS' || dato.nombre_departamento === deptoSeleccionado);
+                const pasaTexto = dato.codigo_proyecto.toLowerCase().includes(textoBusqueda) || 
+                                  dato.nombre_proyecto.toLowerCase().includes(textoBusqueda);
+                return pasaDepto && pasaTexto;
+            });
+
+            // Lógica matemática para ordenar los resultados
+            if (ordenSeleccionado === 'fisico_max') {
+                datosFiltrados.sort((a, b) => b.porcentaje_avance_fisico - a.porcentaje_avance_fisico);
+            } else if (ordenSeleccionado === 'fisico_min') {
+                datosFiltrados.sort((a, b) => a.porcentaje_avance_fisico - b.porcentaje_avance_fisico);
+            } else if (ordenSeleccionado === 'gastado_max') {
+                datosFiltrados.sort((a, b) => b.gastado_total - a.gastado_total);
+            } else if (ordenSeleccionado === 'gastado_min') {
+                datosFiltrados.sort((a, b) => a.gastado_total - b.gastado_total);
+            }
+
+            renderizarTabla(datosFiltrados);
+            renderizarGrafica(datosFiltrados);
+        }
+
+        function renderizarTabla(datos) {
+            const tabla = document.querySelector('#tablaDatos tbody');
+            tabla.innerHTML = ''; 
+
+            if (datos.length === 0) {
+                tabla.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 20px; color:#7f8c8d;">No se encontraron proyectos.</td></tr>';
+                return;
+            }
+
+            datos.forEach(dato => {
+                const fila = `
+                    <tr>
+                        <td>
+                            <strong>${dato.codigo_proyecto}</strong><br>
+                            <small>${dato.nombre_proyecto}</small><br>
+                            <span style="font-size:0.75em; color:#7f8c8d; background:#ecf0f1; padding:2px 6px; border-radius:10px; margin-top:5px; display:inline-block;">${dato.nombre_departamento}</span>
+                        </td>
+                        <td>
+                            <div style="display: flex; justify-content: space-between; font-weight:bold; color:#2c3e50;">
+                                <span>${dato.porcentaje_avance_fisico}%</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: ${dato.porcentaje_avance_fisico}%"></div>
+                            </div>
+                        </td>
+                        <td style="font-weight:bold; color:#c0392b;">
+                            $${parseFloat(dato.gastado_total).toLocaleString('es-MX')}
+                        </td>
+                        <td style="text-align: center;">
+                            <button onclick="verHistorial('${dato.codigo_proyecto}')" class="btn-historial">Ver Historial y Evidencias</button>
+                        </td>
+                    </tr>
+                `;
+                tabla.innerHTML += fila;
+            });
+        }
+
+        function renderizarGrafica(datos) {
+            const ctx = document.getElementById('graficaAvance').getContext('2d');
+            if (chartInstance) { chartInstance.destroy(); }
+            const nombres = datos.map(d => d.codigo_proyecto);
+            const avances = datos.map(d => d.porcentaje_avance_fisico);
+
+            chartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: nombres,
+                    datasets: [{
+                        label: '% Avance Físico',
+                        data: avances,
+                        backgroundColor: '#3E6257',
+                        borderColor: '#2c473f',
+                        borderWidth: 1,
+                        borderRadius: 4
+                    }]
+                },
+                options: { 
+                    scales: { y: { beginAtZero: true, max: 100 } },
+                    plugins: { legend: { display: false } },
+                    animation: { duration: 500 }
+                }
+            });
+        }
+
+        cargarDatos();
+    </script>
+
+    <div id="modalHistorial" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:1000; justify-content:center; align-items:center; backdrop-filter: blur(3px);">
+        <div style="background:white; width:90%; max-width:700px; max-height:80vh; border-radius:10px; padding:25px; overflow-y:auto; position:relative; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+            <button onclick="document.getElementById('modalHistorial').style.display='none'" style="position:absolute; top:15px; right:15px; background:#e74c3c; color:white; border:none; padding:8px 12px; border-radius:5px; cursor:pointer; font-weight:bold;">Cerrar X</button>
+            <h2 id="tituloModal" style="color:#2c3e50; margin-top:0; border-bottom:2px solid #eee; padding-bottom:10px;">Historial de Reportes</h2>
+            <div id="contenedorHistorial" style="margin-top:20px;"></div>
+        </div>
+    </div>
+
+    <script>
+        async function verHistorial(codigoProyecto) {
+            document.getElementById('tituloModal').innerText = "Historial: " + codigoProyecto;
+            const contenedor = document.getElementById('contenedorHistorial');
+            contenedor.innerHTML = "<p style='text-align:center; color:#555;'>Cargando registros desde la nube...</p>";
+            document.getElementById('modalHistorial').style.display = 'flex';
+
+            try {
+                const resp = await fetch('/api/historial/' + codigoProyecto);
+                if (!resp.ok) throw new Error("Error en servidor");
+                const historial = await resp.json();
+
+                if(historial.length === 0) {
+                    contenedor.innerHTML = "<p style='text-align:center;'>Aún no hay reportes.</p>";
+                    return;
+                }
+
+                let html = "";
+                historial.forEach(rep => {
+                    const fecha = rep.fecha_exacta ? rep.fecha_exacta : "Registro Histórico";
+                    
+                    // --- CORRECCIÓN PARA MÚLTIPLES ARCHIVOS ---
+                    let btnsHTML = "";
+                    if (rep.url_evidencia_pdf) {
+                        // Separamos las URLs por coma
+                        const urls = rep.url_evidencia_pdf.split(',');
+                        btnsHTML = urls.map((url, i) => {
+                            const link = url.trim();
+                            if(!link) return '';
+                            // Si es una sola URL, nombre simple. Si son varias, enumerar.
+                            const texto = urls.length > 1 ? `Ver Archivo ${i+1}` : 'Ver Evidencia Adjunta';
+                            return `<a href="${link}" target="_blank" class="btn-evidencia">${texto}</a>`;
+                        }).join('');
+                    } else {
+                        btnsHTML = '<span style="color:#999; font-style:italic;">Sin evidencia</span>';
+                    }
+
+                    html += `
+                        <div style="border-left: 5px solid #3E6257; background:#f8f9fa; margin-bottom:20px; padding:20px; border-radius:0 8px 8px 0; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom: 1px solid #ddd; padding-bottom: 10px;">
+                                <strong style="color:#2c3e50;">Enviado el: ${fecha}</strong>
+                                <span style="background:#3E6257; color:white; padding:5px 12px; border-radius:15px; font-size:0.85em; font-weight:bold;">${rep.mes_reportado}</span>
+                            </div>
+                            
+                            <p style="margin:5px 0; color:#34495e; font-size:0.95em; line-height:1.6;">
+                                <strong>Responsable:</strong> ${rep.nombre_encargado || 'No especificado'}<br>
+                                <strong>Correo:</strong> <a href="mailto:${rep.correo_contacto}" style="color:#2980b9; text-decoration:none;">${rep.correo_contacto || 'Sin correo registrado'}</a>
+                            </p>
+                            
+                            <div style="display:flex; justify-content:space-around; background:white; padding:15px; border-radius:8px; margin:15px 0; border: 1px solid #e0e0e0;">
+                                <div style="text-align:center;">
+                                    <b style="font-size: 1.2em; color: #27ae60;">+${rep.avance_fisico_periodo}%</b><br><small>Físico</small>
+                                </div>
+                                <div style="text-align:center;">
+                                    <b style="font-size: 1.2em; color:#c0392b;">$${parseFloat(rep.avance_financiero_periodo).toLocaleString('es-MX')}</b><br><small>Gasto</small>
+                                </div>
+                            </div>
+                            <div style="background: white; padding: 10px; border-radius: 5px; border-left: 3px solid #3E6257; margin-bottom:10px;">
+                                <p style="margin:0; font-size:0.9em; color:#555;"><strong>Observaciones:</strong> ${rep.observaciones || 'Sin observaciones.'}</p>
+                            </div>
+                            <div style="text-align:right;">
+                                ${btnsHTML}
+                            </div>
+                        </div>
+                    `;
+                });
+                contenedor.innerHTML = html;
+            } catch (error) {
+                contenedor.innerHTML = "<p style='color:red; text-align:center;'>Error al cargar datos.</p>";
+            }
+        }
+    </script>
+</body>
+</html>

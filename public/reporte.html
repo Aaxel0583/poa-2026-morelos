@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reporte de Seguimiento - POA 2026</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/[email protected]/dist/xlsx.full.min.js"></script>
+<style>
+    body { font-family: 'Segoe UI', sans-serif; background-color: #1a1a2e; color: white; padding: 20px; max-width: 1100px; margin: 0 auto; }
+    h1 { color: #e94560; margin-bottom: 5px; }
+    h2 { color: #4ecca3; border-bottom: 1px solid #333; padding-bottom: 8px; margin-top: 40px; }
+    p.subtitle { color: #a0a0a0; margin-top: 0; }
+    .nav { margin-bottom: 20px; }
+    .nav a { color: #4ecca3; text-decoration: none; font-weight: bold; border: 1px solid #4ecca3; padding: 8px 15px; border-radius: 5px; }
+    .nav a:hover { background-color: #4ecca3; color: #1a1a2e; }
+
+    .card { background-color: #16213e; padding: 20px; border-radius: 15px; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin: 20px 0; }
+    .kpi { background-color: #16213e; padding: 15px; border-radius: 10px; text-align: center; }
+    .kpi .valor { font-size: 1.6em; font-weight: bold; color: #4ecca3; }
+    .kpi .etiqueta { font-size: 0.85em; color: #a0a0a0; margin-top: 5px; }
+
+    select, button { font-family: inherit; font-size: 1em; padding: 10px 14px; border-radius: 8px; border: 1px solid #4ecca3; background: #16213e; color: white; cursor: pointer; }
+    button { background-color: #4ecca3; color: #1a1a2e; font-weight: bold; border: none; margin-right: 10px; margin-top: 10px; }
+    button:hover { opacity: 0.85; }
+    .controles { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 15px 0; }
+
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.9em; }
+    th, td { padding: 10px; text-align: left; border-bottom: 1px solid #333; }
+    th { color: #4ecca3; }
+    tr:hover { background-color: #1f2a48; }
+
+    .badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-weight: bold; font-size: 0.85em; }
+    .badge-verde { background: #4ecca3; color: #1a1a2e; }
+    .badge-amarillo { background: #f9ca24; color: #1a1a2e; }
+    .badge-rojo { background: #e94560; color: white; }
+    .desviacion { display: block; font-size: 0.8em; color: #a0a0a0; margin-top: 4px; }
+    .desviacion.positiva { color: #4ecca3; }
+    .desviacion.negativa { color: #e94560; }
+    .dot { height: 10px; width: 10px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+    .dot-verde { background: #4ecca3; } .dot-amarillo { background: #f9ca24; } .dot-rojo { background: #e94560; }
+
+    .evidencia-link { color: #4ecca3; text-decoration: none; font-size: 0.85em; }
+    .evidencia-link:hover { text-decoration: underline; }
+    .sin-evidencia { color: #666; font-style: italic; font-size: 0.85em; }
+
+    #detalleDepartamento { display: none; }
+
+    @media print {
+        body { background: white; color: black; padding: 0; }
+        .nav, .controles, button, .no-print { display: none !important; }
+        .card, .kpi { background: white; box-shadow: none; border: 1px solid #ccc; }
+        h2 { color: #000; }
+        .kpi .valor { color: #000; }
+        table { font-size: 0.8em; }
+        th { color: #000; }
+    }
+</style>
+</head>
+<body>
+
+<script>
+    const usuarioGuardado = localStorage.getItem('usuarioPOA');
+    if (!usuarioGuardado) {
+        window.location.href = 'login.html';
+    } else {
+        const usuario = JSON.parse(usuarioGuardado);
+        if (usuario.rol !== 'ADMIN') {
+            alert("⛔ ACCESO DENEGADO: Solo Presidencia/Administración puede ver esto.");
+            window.location.href = 'index.html';
+        }
+    }
+</script>
+
+<div class="nav no-print">
+    <a href="presidencia.html">← Volver al Tablero Ejecutivo</a>
+</div>
+
+<h1>Reporte de Seguimiento POA 2026</h1>
+<p class="subtitle">Presupuesto vs. ejecución real, avance físico y evidencias por departamento</p>
+
+<!-- ===================== COMPARATIVO GENERAL ===================== -->
+<h2>Comparativo General por Departamento</h2>
+<div class="card">
+    <canvas id="graficaComparativo" height="90"></canvas>
+</div>
+
+<table id="tablaComparativo">
+    <thead>
+        <tr>
+            <th>Departamento</th>
+            <th>Presupuesto Autorizado</th>
+            <th>Gastado</th>
+            <th>% Ejecutado</th>
+            <th>Brecha</th>
+            <th>Avance Físico Prom.</th>
+            <th>Indicador</th>
+        </tr>
+    </thead>
+    <tbody><tr><td colspan="7" style="text-align:center; color:#a0a0a0;">Cargando...</td></tr></tbody>
+</table>
+
+<!-- ===================== REPORTE POR DEPARTAMENTO ===================== -->
+<h2>Reporte Detallado por Departamento</h2>
+<div class="controles no-print">
+    <select id="selectDepartamento"><option value="">Selecciona un departamento...</option></select>
+    <button onclick="cargarReporteDepartamento()">Generar Reporte</button>
+</div>
+
+<div id="detalleDepartamento">
+    <div class="kpi-grid">
+        <div class="kpi"><div class="valor" id="kpiPresupuesto">$0</div><div class="etiqueta">Presupuesto Autorizado</div></div>
+        <div class="kpi"><div class="valor" id="kpiGastado">$0</div><div class="etiqueta">Gastado a la Fecha</div></div>
+        <div class="kpi"><div class="valor" id="kpiPctEjecutado">0%</div><div class="etiqueta">% Ejecutado</div></div>
+        <div class="kpi"><div class="valor" id="kpiBrecha">$0</div><div class="etiqueta">Brecha vs. Presupuesto</div></div>
+        <div class="kpi"><div class="valor" id="kpiAvanceFisico">0%</div><div class="etiqueta">Avance Físico Acumulado</div></div>
+        <div class="kpi"><div id="kpiSemaforo">-</div><div class="etiqueta">Indicador de Desempeño</div></div>
+    </div>
+
+    <div class="card">
+        <canvas id="graficaTendencia" height="90"></canvas>
+    </div>
+
+    <h3 style="color:#4ecca3;">Resumen Mensual</h3>
+    <table id="tablaMensual">
+        <thead>
+            <tr><th>Mes</th><th>Acciones Reportadas</th><th>Gasto del Mes</th><th>Gasto Acumulado</th><th>Avance Físico del Mes</th><th>Avance Acumulado</th></tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <h3 style="color:#4ecca3;">Acciones Realizadas y Evidencias</h3>
+    <table id="tablaDetalle">
+        <thead>
+            <tr><th>Mes</th><th>Proyecto</th><th>Acción Realizada</th><th>Avance</th><th>Gasto</th><th>Responsable</th><th>Evidencia</th></tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <div class="no-print" style="margin-top: 20px;">
+        <button onclick="window.print()">🖨️ Descargar / Imprimir PDF</button>
+        <button onclick="exportarExcel()">📊 Exportar a Excel</button>
+    </div>
+</div>
+
+<script>
+// ---------- Utilidades ----------
+const fmtMoney = n => '$' + (parseFloat(n) || 0).toLocaleString('es-MX', { maximumFractionDigits: 0 });
+const fmtPct = n => (parseFloat(n) || 0).toFixed(1) + '%';
+
+function badgeSemaforo(semaforo) {
+    if (!semaforo) return '';
+    const dif = semaforo.diferencia;
+    const signo = dif > 0 ? '+' : '';
+    const claseDireccion = dif >= 0 ? 'positiva' : 'negativa';
+    const textoDesviacion = `${signo}${dif}% vs. lo esperado (${dif >= 0 ? 'arriba' : 'abajo'})`;
+    return `
+        <span class="badge badge-${semaforo.color}">${semaforo.mensaje}</span>
+        <span class="desviacion ${claseDireccion}">${textoDesviacion}</span>
+    `;
+}
+function dotSemaforo(color) {
+    return `<span class="dot dot-${color}"></span>`;
+}
+
+let nombreDepartamentoActual = '';
+let datosMensualesActuales = [];
+let datosDetalleActuales = [];
+
+// ---------- 1. Comparativo general ----------
+async function cargarComparativo() {
+    try {
+        const resp = await fetch('/api/comparativo-departamentos');
+        const datos = await resp.json();
+
+        // Tabla
+        const tbody = document.querySelector('#tablaComparativo tbody');
+        if (datos.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Sin datos aún.</td></tr>';
+        } else {
+            tbody.innerHTML = datos.map(d => `
+                <tr>
+                    <td>${dotSemaforo(d.semaforo.color)}${d.nombre}</td>
+                    <td>${fmtMoney(d.presupuesto_autorizado)}</td>
+                    <td>${fmtMoney(d.gasto_acumulado)}</td>
+                    <td>${fmtPct(d.pct_ejecutado)}</td>
+                    <td>${fmtMoney(d.brecha)}</td>
+                    <td>${fmtPct(d.avance_fisico_promedio)}</td>
+                    <td>${badgeSemaforo(d.semaforo)}</td>
+                </tr>
+            `).join('');
+        }
+
+        // Gráfica: % ejecutado vs. avance físico por departamento
+        const ctx = document.getElementById('graficaComparativo').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: datos.map(d => d.nombre),
+                datasets: [
+                    { label: '% Presupuesto Ejecutado', data: datos.map(d => d.pct_ejecutado), backgroundColor: '#e94560' },
+                    { label: 'Avance Físico Promedio (%)', data: datos.map(d => d.avance_fisico_promedio), backgroundColor: '#4ecca3' }
+                ]
+            },
+            options: {
+                scales: {
+                    x: { ticks: { color: '#ccc', maxRotation: 60, minRotation: 45 }, grid: { color: '#333' } },
+                    y: { beginAtZero: true, ticks: { color: '#ccc' }, grid: { color: '#333' } }
+                },
+                plugins: { legend: { labels: { color: 'white' } } }
+            }
+        });
+    } catch (error) {
+        console.error(error);
+        document.querySelector('#tablaComparativo tbody').innerHTML = '<tr><td colspan="7" style="text-align:center; color:#e94560;">Error al cargar el comparativo.</td></tr>';
+    }
+}
+
+// ---------- 2. Poblar selector de departamentos ----------
+async function cargarDepartamentos() {
+    try {
+        const resp = await fetch('/api/departamentos');
+        const datos = await resp.json();
+        const select = document.getElementById('selectDepartamento');
+        datos.forEach(d => {
+            const opt = document.createElement('option');
+            opt.value = d.id_dependencia;
+            opt.textContent = d.nombre;
+            select.appendChild(opt);
+        });
+    } catch (error) { console.error(error); }
+}
+
+// ---------- 3. Reporte detallado de un departamento ----------
+async function cargarReporteDepartamento() {
+    const select = document.getElementById('selectDepartamento');
+    const idDep = select.value;
+    if (!idDep) { alert('Selecciona un departamento primero.'); return; }
+    nombreDepartamentoActual = select.options[select.selectedIndex].textContent;
+
+    try {
+        const resp = await fetch('/api/reporte-departamento/' + idDep);
+        const datos = await resp.json();
+
+        document.getElementById('kpiPresupuesto').textContent = fmtMoney(datos.presupuesto_autorizado);
+        document.getElementById('kpiGastado').textContent = fmtMoney(datos.gasto_acumulado);
+        document.getElementById('kpiPctEjecutado').textContent = fmtPct(datos.pct_ejecutado);
+        document.getElementById('kpiBrecha').textContent = fmtMoney(datos.brecha);
+        document.getElementById('kpiAvanceFisico').textContent = fmtPct(datos.avance_fisico_promedio);
+        document.getElementById('kpiSemaforo').innerHTML = badgeSemaforo(datos.semaforo);
+
+        datosMensualesActuales = datos.resumen_por_mes;
+        datosDetalleActuales = datos.detalle;
+
+        // Tabla mensual
+        document.querySelector('#tablaMensual tbody').innerHTML = datos.resumen_por_mes.map(m => `
+            <tr>
+                <td>${m.mes}</td>
+                <td>${m.acciones_reportadas}</td>
+                <td>${fmtMoney(m.gasto_periodo)}</td>
+                <td>${fmtMoney(m.gasto_acumulado)}</td>
+                <td>${fmtPct(m.avance_fisico_periodo_promedio)}</td>
+                <td>${fmtPct(m.avance_fisico_acumulado_promedio)}</td>
+            </tr>
+        `).join('') || '<tr><td colspan="6" style="text-align:center;">Sin reportes aún.</td></tr>';
+
+        // Tabla detalle + evidencias
+        document.querySelector('#tablaDetalle tbody').innerHTML = datos.detalle.map(r => {
+            let evidenciaHTML = '<span class="sin-evidencia">Sin evidencia</span>';
+            if (r.url_evidencia_pdf) {
+                const urls = r.url_evidencia_pdf.split(',').map(u => u.trim()).filter(Boolean);
+                evidenciaHTML = urls.map((u, i) => `<a href="${u}" target="_blank" class="evidencia-link">Ver ${urls.length > 1 ? 'archivo ' + (i + 1) : 'evidencia'}</a>`).join(' · ');
+            }
+            return `
+                <tr>
+                    <td>${r.mes}</td>
+                    <td><strong>${r.codigo_proyecto}</strong><br><small>${r.nombre_proyecto}</small></td>
+                    <td>${r.observaciones || '-'}</td>
+                    <td>+${r.avance_fisico_periodo}%</td>
+                    <td>${fmtMoney(r.avance_financiero_periodo)}</td>
+                    <td>${r.nombre_encargado || '-'}</td>
+                    <td>${evidenciaHTML}</td>
+                </tr>
+            `;
+        }).join('') || '<tr><td colspan="7" style="text-align:center;">Sin reportes aún.</td></tr>';
+
+        // Gráfica de tendencia
+        const ctx = document.getElementById('graficaTendencia').getContext('2d');
+        if (window.chartTendencia) window.chartTendencia.destroy();
+        window.chartTendencia = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: datos.resumen_por_mes.map(m => m.mes),
+                datasets: [
+                    { label: 'Avance Físico Acumulado (%)', data: datos.resumen_por_mes.map(m => m.avance_fisico_acumulado_promedio), borderColor: '#4ecca3', backgroundColor: 'rgba(78,204,163,0.2)', yAxisID: 'y', tension: 0.3 },
+                    { label: 'Gasto Acumulado ($)', data: datos.resumen_por_mes.map(m => m.gasto_acumulado), borderColor: '#e94560', backgroundColor: 'rgba(233,69,96,0.2)', yAxisID: 'y1', tension: 0.3 }
+                ]
+            },
+            options: {
+                scales: {
+                    x: { ticks: { color: '#ccc' }, grid: { color: '#333' } },
+                    y: { position: 'left', beginAtZero: true, max: 100, ticks: { color: '#ccc' }, grid: { color: '#333' } },
+                    y1: { position: 'right', beginAtZero: true, ticks: { color: '#ccc' }, grid: { display: false } }
+                },
+                plugins: { legend: { labels: { color: 'white' } } }
+            }
+        });
+
+        document.getElementById('detalleDepartamento').style.display = 'block';
+    } catch (error) {
+        console.error(error);
+        alert('Error al generar el reporte del departamento.');
+    }
+}
+
+// ---------- 4. Exportar a Excel ----------
+function exportarExcel() {
+    if (datosMensualesActuales.length === 0) { alert('Genera primero un reporte.'); return; }
+
+    const wb = XLSX.utils.book_new();
+
+    const hojaMensual = datosMensualesActuales.map(m => ({
+        Mes: m.mes,
+        'Acciones Reportadas': m.acciones_reportadas,
+        'Gasto del Mes': m.gasto_periodo,
+        'Gasto Acumulado': m.gasto_acumulado,
+        'Avance Físico del Mes (%)': m.avance_fisico_periodo_promedio,
+        'Avance Acumulado (%)': m.avance_fisico_acumulado_promedio
+    }));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(hojaMensual), 'Resumen Mensual');
+
+    const hojaDetalle = datosDetalleActuales.map(r => ({
+        Mes: r.mes,
+        Proyecto: r.codigo_proyecto + ' - ' + r.nombre_proyecto,
+        'Acción Realizada': r.observaciones || '',
+        'Avance Físico (%)': r.avance_fisico_periodo,
+        'Gasto ($)': r.avance_financiero_periodo,
+        Responsable: r.nombre_encargado || '',
+        Evidencia: r.url_evidencia_pdf || 'Sin evidencia'
+    }));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(hojaDetalle), 'Detalle y Evidencias');
+
+    const nombreArchivo = `Reporte_${nombreDepartamentoActual.replace(/[^a-z0-9]/gi, '_')}.xlsx`;
+    XLSX.writeFile(wb, nombreArchivo);
+}
+
+cargarComparativo();
+cargarDepartamentos();
+</script>
+
+</body>
+</html>
