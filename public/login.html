@@ -72,48 +72,80 @@
             transition: background-color 0.3s;
         }
 
-        button:hover { 
-            background-color: #c0392b; 
+        button:hover {
+            background-color: #c0392b;
+        }
+
+        button:disabled {
+            background-color: #e8a29c;
+            cursor: not-allowed;
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
         }
     </style>
 </head>
 <body>
     <div class="login-card">
-        
+
         <div class="logo-container">
             <img src="logo.jpeg" alt="Logo Sistema POA">
         </div>
-        
+
         <h2>Sistema POA</h2>
-        
-        <input type="email" id="email" placeholder="Correo Institucional" value="trejorafa_7@yahoo.com.mx">
-        <input type="password" id="password" placeholder="Contraseña" value="RafatrejoPoa2026..">
-        
-        <button onclick="iniciarSesion()">Ingresar</button>
-        
+
+        <form id="loginForm">
+            <label for="email" class="sr-only">Correo Institucional</label>
+            <input type="email" id="email" placeholder="Correo Institucional" value="trejorafa_7@yahoo.com.mx" autocomplete="email">
+
+            <label for="password" class="sr-only">Contraseña</label>
+            <input type="password" id="password" placeholder="Contraseña" value="RafatrejoPoa2026.." autocomplete="current-password">
+
+            <button type="submit" id="btnIngresar">Ingresar</button>
+        </form>
+
         <p id="errorMsg" style="color: #c0392b; font-weight: bold; display: none; margin-top: 15px;">Datos incorrectos</p>
     </div>
 
     <script>
+        document.getElementById('loginForm').addEventListener('submit', function (evento) {
+            evento.preventDefault();
+            iniciarSesion();
+        });
+
         async function iniciarSesion() {
             // 1. Obtener datos
             const emailInput = document.getElementById('email');
             const passInput = document.getElementById('password');
             const errorMsg = document.getElementById('errorMsg');
-            
+            const boton = document.getElementById('btnIngresar');
+
             // Limpiamos mensajes previos
             errorMsg.style.display = 'none';
 
             if (!emailInput.value || !passInput.value) {
-                alert("⚠️ Por favor escribe correo y contraseña");
+                errorMsg.innerText = "⚠️ Por favor escribe correo y contraseña";
+                errorMsg.style.display = 'block';
                 return;
             }
+
+            boton.disabled = true;
+            boton.innerText = 'Ingresando...';
 
             try {
                 console.log("Intentando conectar con el servidor...");
 
                 // 2. Intentar conectar (AJUSTADO PARA INTERNET)
-                const resp = await fetch('/api/login', { 
+                const resp = await fetch('/api/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email: emailInput.value, password: passInput.value })
@@ -137,6 +169,7 @@
                     } else {
                         window.location.href = 'captura.html'; // El trabajador va directo a trabajar
                     }
+                    return;
                 } else {
                     // Login fallido (contraseña mal)
                     errorMsg.innerText = "❌ " + (data.mensaje || "Datos incorrectos");
@@ -145,7 +178,11 @@
 
             } catch (error) {
                 console.error(error);
-                alert("🚨 ERROR DE CONEXIÓN: \n\nNo se pudo contactar al servidor. Inténtalo de nuevo más tarde.\n\nDetalle: " + error.message);
+                errorMsg.innerText = "🚨 ERROR DE CONEXIÓN: No se pudo contactar al servidor. Inténtalo de nuevo más tarde.";
+                errorMsg.style.display = 'block';
+            } finally {
+                boton.disabled = false;
+                boton.innerText = 'Ingresar';
             }
         }
     </script>

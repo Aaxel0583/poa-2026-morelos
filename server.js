@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const { Pool } = require('pg');
+const bcrypt = require('bcryptjs');
 const cors = require('cors');
 const multer = require('multer');
 const path = require('path');
@@ -63,12 +64,16 @@ app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
     try {
         const resultado = await pool.query(
-            'SELECT id_usuario, nombre_completo, rol, id_dependencia FROM USUARIOS WHERE email = $1 AND password = $2',
-            [email, password]
+            'SELECT id_usuario, nombre_completo, rol, id_dependencia, password FROM USUARIOS WHERE email = $1',
+            [email]
         );
 
-        if (resultado.rows.length > 0) {
-            res.json({ exito: true, usuario: resultado.rows[0] });
+        const usuario = resultado.rows[0];
+        const coincide = usuario && await bcrypt.compare(password, usuario.password);
+
+        if (coincide) {
+            delete usuario.password;
+            res.json({ exito: true, usuario });
         } else {
             res.status(401).json({ exito: false, mensaje: 'Credenciales incorrectas' });
         }
@@ -200,10 +205,19 @@ app.delete('/api/superadmin/reporte/:id', async (req, res) => {
 app.put('/api/superadmin/reporte/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const { avance_fisico, avance_financiero } = req.body;
+        const avanceFisico = parseFloat(req.body.avance_fisico);
+        const avanceFinanciero = parseFloat(req.body.avance_financiero);
+
+        if (isNaN(avanceFisico) || avanceFisico < 0 || avanceFisico > 100) {
+            return res.status(400).json({ exito: false, mensaje: 'El avance físico debe ser un número entre 0 y 100.' });
+        }
+        if (isNaN(avanceFinanciero) || avanceFinanciero < 0) {
+            return res.status(400).json({ exito: false, mensaje: 'El gasto no puede ser un número negativo.' });
+        }
+
         await pool.query(
             'UPDATE reportes_avance SET avance_fisico_periodo = $1, avance_financiero_periodo = $2 WHERE id_reporte = $3',
-            [avance_fisico, avance_financiero, id]
+            [avanceFisico, avanceFinanciero, id]
         );
         res.json({ exito: true, mensaje: 'Avance actualizado correctamente. El total del proyecto cambiará.' });
     } catch (error) {
