@@ -87,7 +87,7 @@
         <h2>Sistema POA</h2>
         
         <input type="email" id="email" placeholder="Correo Institucional" value="trejorafa_7@yahoo.com.mx">
-        <input type="password" id="password" placeholder="Contraseña" value="rafatrejoPoa2026.">
+        <input type="password" id="password" placeholder="Contraseña" value="RafatrejoPoa2026..">
         
         <button onclick="iniciarSesion()">Ingresar</button>
         
@@ -119,8 +119,8 @@
                     body: JSON.stringify({ email: emailInput.value, password: passInput.value })
                 });
 
-                // 3. Verificar si el servidor contestó
-                if (!resp.ok) {
+                // 3. Verificar si el servidor contestó con un error real (no 401 de credenciales)
+                if (!resp.ok && resp.status !== 401) {
                     throw new Error(`Error del servidor: ${resp.status}`);
                 }
 
