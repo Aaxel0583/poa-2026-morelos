@@ -13,23 +13,6 @@ const app = express();
 // 1. CONFIGURACIÓN DE SEGURIDAD Y ARCHIVOS
 app.use(cors());
 app.use(express.json());
-
-// Modo mantenimiento: activar con MAINTENANCE_MODE=true (no modifica datos)
-app.use((req, res, next) => {
-  if (process.env.MAINTENANCE_MODE !== 'true') return next();
-  res.set('Retry-After', '86400');
-  if (req.path.startsWith('/api')) {
-    return res.status(503).json({ error: 'Servicio no disponible' });
-  }
-  res.status(503).send(`<!DOCTYPE html>
-<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Servicio no disponible</title></head>
-<body style="font-family:system-ui,sans-serif;text-align:center;padding:4rem 1rem;color:#333">
-<h1>503 — Servicio no disponible</h1>
-<p>El servicio no está disponible en este momento.</p>
-</body></html>`);
-});
-
 app.use(express.static(path.join(__dirname, 'public')));
 
 // --- CONFIGURACIÓN DE NUBE (CLOUDINARY) ---
