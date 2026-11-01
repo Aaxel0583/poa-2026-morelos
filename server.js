@@ -13,6 +13,43 @@ const app = express();
 // 1. CONFIGURACIÓN DE SEGURIDAD Y ARCHIVOS
 app.use(cors());
 app.use(express.json());
+
+// Programa pausado por falta de pago.
+// Activo por defecto; para reanudar sin cambiar código, definir PROGRAMA_PAUSADO=false.
+// No modifica ni elimina ningún dato: solo bloquea el acceso.
+const PROGRAMA_PAUSADO = process.env.PROGRAMA_PAUSADO !== 'false';
+app.use((req, res, next) => {
+  if (!PROGRAMA_PAUSADO) return next();
+  if (req.path === '/logo.jpeg') return next();
+  if (req.path.startsWith('/api')) {
+    return res.status(503).json({ error: 'Programa pausado por falta de pago' });
+  }
+  res.status(503).send(`<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Programa pausado</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+       padding:16px;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+       background:rgba(20,20,30,.75);color:#222}
+  .ventana{background:#fff;max-width:440px;width:100%;border-radius:14px;
+           box-shadow:0 20px 50px rgba(0,0,0,.35);padding:2rem 1.75rem;text-align:center}
+  .ventana img{width:80px;height:auto;margin-bottom:1rem}
+  .icono{font-size:2.75rem;line-height:1;margin-bottom:.5rem}
+  h1{font-size:1.4rem;margin:.25rem 0 .75rem;color:#b00020}
+  p{margin:.5rem 0;line-height:1.5;color:#444}
+</style></head>
+<body>
+  <div class="ventana" role="alertdialog" aria-labelledby="t" aria-describedby="d">
+    <img src="/logo.jpeg" alt="" onerror="this.remove()">
+    <div class="icono" aria-hidden="true">⏸️</div>
+    <h1 id="t">Programa pausado</h1>
+    <p id="d">El programa se ha pausado por falta de pago.</p>
+    <p>Para reactivar el servicio, comuníquese con el desarrollador.</p>
+  </div>
+</body></html>`);
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // --- CONFIGURACIÓN DE NUBE (CLOUDINARY) ---
