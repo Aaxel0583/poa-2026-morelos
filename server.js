@@ -15,9 +15,9 @@ app.use(cors());
 app.use(express.json());
 
 // Programa pausado por falta de pago.
-// Activo por defecto; para reanudar sin cambiar código, definir PROGRAMA_PAUSADO=false.
+// Desactivado por defecto; para volver a pausar sin cambiar código, definir PROGRAMA_PAUSADO=true.
 // No modifica ni elimina ningún dato: solo bloquea el acceso.
-const PROGRAMA_PAUSADO = process.env.PROGRAMA_PAUSADO !== 'false';
+const PROGRAMA_PAUSADO = process.env.PROGRAMA_PAUSADO === 'true';
 app.use((req, res, next) => {
   if (!PROGRAMA_PAUSADO) return next();
   if (req.path === '/logo.jpeg') return next();
