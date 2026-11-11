@@ -92,7 +92,6 @@
             </select>
 
             <div id="cajaPresupuesto" class="presupuesto-box">
-                <strong>Presupuesto Autorizado Anual:</strong> $<span id="lblAutorizado">0</span><br>
                 <strong>Dinero Gastado Hasta Ahora:</strong> $<span id="lblGastado">0</span><br>
                 <strong style="color: #c0392b; margin-top: 5px; display: inline-block;">Avance Físico Acumulado: <span id="lblFisico">0</span>%</strong>
             </div>
@@ -120,7 +119,7 @@
             <input type="number" step="0.01" id="financiero" min="0" placeholder="Ej. 5000.00" required>
 
             <label>Observaciones / Justificación:</label>
-            <textarea id="obs" placeholder="Describe brevemente los logros o si te pasaste del presupuesto, explica por qué..."></textarea>
+            <textarea id="obs" placeholder="Describe brevemente los logros y en qué se gastó..."></textarea>
 
             <label>Evidencias (Puedes seleccionar varias fotos o PDFs):</label>
             <input type="file" id="archivoEvidencia" accept=".pdf, .jpg, .png, .jpeg" multiple>
@@ -188,25 +187,20 @@
             const proyecto = proyectosActuales.find(p => p.id_actividad == idAct);
             if (proyecto) {
                 // Mostrar dinero (Formateado con comas)
-                document.getElementById('lblAutorizado').innerText = parseFloat(proyecto.presupuesto_autorizado).toLocaleString('es-MX');
                 document.getElementById('lblGastado').innerText = parseFloat(proyecto.gastado).toLocaleString('es-MX');
                 
                 // CALCULAR CANDADO FÍSICO
                 const acumulado = parseFloat(proyecto.fisico_acumulado || 0);
-                const restante = 100 - acumulado;
+                const restante = Math.max(0, 100 - acumulado);
                 
                 document.getElementById('lblFisico').innerText = acumulado;
                 
                 inputFisico.max = restante;
                 inputFisico.placeholder = `Queda un ${restante}% disponible por reportar`;
                 
-                if(restante <= 0) {
-                    inputFisico.disabled = true;
-                    inputFisico.placeholder = "Este proyecto ya alcanzó el 100%";
-                    inputFisico.value = "";
-                } else {
-                    inputFisico.disabled = false;
-                }
+                // Al 100% físico se fija en 0 para que aún puedan reportar gasto y evidencias
+                inputFisico.readOnly = restante <= 0;
+                inputFisico.value = restante <= 0 ? 0 : "";
                 
                 caja.style.display = 'block';
             }

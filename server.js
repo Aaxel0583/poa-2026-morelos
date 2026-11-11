@@ -122,7 +122,15 @@ app.post('/api/login', async (req, res) => {
 
 app.get('/api/tablero', async (req, res) => {
   try {
-    const resultado = await pool.query('SELECT * FROM VISTA_TABLERO_CONTROL');
+    const resultado = await pool.query(`
+        SELECT v.*, COALESCE(pr.presupuesto, 0) AS presupuesto_autorizado
+        FROM VISTA_TABLERO_CONTROL v
+        LEFT JOIN (
+            SELECT p.codigo_proyecto, SUM(a.presupuesto_autorizado) AS presupuesto
+            FROM PROYECTOS p JOIN ACTIVIDADES_PLANEADAS a ON a.id_proyecto = p.id_proyecto
+            GROUP BY p.codigo_proyecto
+        ) pr ON pr.codigo_proyecto = v.codigo_proyecto
+    `);
     res.json(resultado.rows);
   } catch (error) {
     console.error(error);
@@ -203,7 +211,8 @@ app.post('/api/reportar', upload.array('evidencia', 10), async (req, res) => {
             return res.status(400).json({ error: 'El gasto reportado no puede ser un número negativo.' });
         }
 
-        if ((avanceAcumulado + avanceNuevo) > 100) {
+        // Con 0% físico siempre se acepta: permite seguir reportando gasto en proyectos ya al 100%
+        if (avanceNuevo > 0 && (avanceAcumulado + avanceNuevo) > 100) {
             return res.status(400).json({ error: `Violación de límite. El avance total superaría el 100%. Te queda un máximo de ${100 - avanceAcumulado}% por reportar.` });
         }
 

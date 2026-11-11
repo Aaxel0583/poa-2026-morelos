@@ -127,7 +127,7 @@
                         <tr>
                             <th>Proyecto</th>
                             <th>Avance Físico</th>
-                            <th>Presupuesto Gastado</th>
+                            <th>Presupuesto y Gasto</th>
                             <th style="text-align: center;">Acciones</th>
                         </tr>
                     </thead>
@@ -198,7 +198,19 @@
                 return;
             }
 
+            const fmt = n => '$' + n.toLocaleString('es-MX');
             datos.forEach(dato => {
+                const presupuesto = parseFloat(dato.presupuesto_autorizado) || 0;
+                const gastado = parseFloat(dato.gastado_total) || 0;
+                let dinero;
+                if (presupuesto <= 0) {
+                    dinero = `<small style="color:#7f8c8d;">Sin presupuesto asignado</small><br>Total gastado: ${fmt(gastado)}`;
+                } else {
+                    dinero = `<small style="color:#2c3e50;">Presupuesto: ${fmt(presupuesto)}</small><br>Gastado: ${fmt(gastado)}`;
+                    if (gastado > presupuesto) {
+                        dinero += `<br><span style="background:#c0392b; color:white; padding:2px 8px; border-radius:10px; font-size:0.85em;">Excedido por ${fmt(gastado - presupuesto)}</span>`;
+                    }
+                }
                 const fila = `
                     <tr>
                         <td>
@@ -215,7 +227,7 @@
                             </div>
                         </td>
                         <td style="font-weight:bold; color:#c0392b;">
-                            $${parseFloat(dato.gastado_total).toLocaleString('es-MX')}
+                            ${dinero}
                         </td>
                         <td style="text-align: center;">
                             <button onclick="verHistorial('${dato.codigo_proyecto}')" class="btn-historial">Ver Historial y Evidencias</button>
