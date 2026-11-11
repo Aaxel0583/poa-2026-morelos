@@ -141,6 +141,12 @@
         let todosLosDatos = [];
         let chartInstance = null;
 
+        // Hay reportes viejos con NaN o montos negativos en la base: aquí se sanean antes de mostrarse
+        const fmt = n => n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
+        const dinero = x => Math.max(0, parseFloat(x) || 0);
+        const avance = x => { const n = parseFloat(x); return Number.isFinite(n) ? n : null; };
+        const fmtPct = n => n === null ? 'Sin dato' : n.toLocaleString('es-MX', { maximumFractionDigits: 2 }) + '%';
+
         async function cargarDatos() {
             try {
                 const respDeptos = await fetch('/api/departamentos');
@@ -154,7 +160,12 @@
                 });
 
                 const respuesta = await fetch('/api/tablero');
-                todosLosDatos = await respuesta.json();
+                todosLosDatos = (await respuesta.json()).map(d => ({
+                    ...d,
+                    porcentaje_avance_fisico: avance(d.porcentaje_avance_fisico),
+                    gastado_total: dinero(d.gastado_total),
+                    presupuesto_autorizado: dinero(d.presupuesto_autorizado)
+                }));
                 aplicarFiltros();
             } catch (error) {
                 console.error("Error cargando datos:", error);
@@ -198,10 +209,9 @@
                 return;
             }
 
-            const fmt = n => '$' + n.toLocaleString('es-MX');
             datos.forEach(dato => {
-                const presupuesto = parseFloat(dato.presupuesto_autorizado) || 0;
-                const gastado = parseFloat(dato.gastado_total) || 0;
+                const presupuesto = dato.presupuesto_autorizado;
+                const gastado = dato.gastado_total;
                 let dinero;
                 if (presupuesto <= 0) {
                     dinero = `<small style="color:#7f8c8d;">Sin presupuesto asignado</small><br>Total gastado: ${fmt(gastado)}`;
@@ -220,10 +230,10 @@
                         </td>
                         <td>
                             <div style="display: flex; justify-content: space-between; font-weight:bold; color:#2c3e50;">
-                                <span>${dato.porcentaje_avance_fisico}%</span>
+                                <span>${fmtPct(dato.porcentaje_avance_fisico)}</span>
                             </div>
                             <div class="progress-bar">
-                                <div class="progress-fill" style="width: ${dato.porcentaje_avance_fisico}%"></div>
+                                <div class="progress-fill" style="width: ${Math.min(100, Math.max(0, dato.porcentaje_avance_fisico || 0))}%"></div>
                             </div>
                         </td>
                         <td style="font-weight:bold; color:#c0392b;">
@@ -327,10 +337,10 @@
                             
                             <div style="display:flex; justify-content:space-around; background:white; padding:15px; border-radius:8px; margin:15px 0; border: 1px solid #e0e0e0;">
                                 <div style="text-align:center;">
-                                    <b style="font-size: 1.2em; color: #27ae60;">+${rep.avance_fisico_periodo}%</b><br><small>Físico</small>
+                                    <b style="font-size: 1.2em; color: #27ae60;">${avance(rep.avance_fisico_periodo) === null ? '' : '+'}${fmtPct(avance(rep.avance_fisico_periodo))}</b><br><small>Físico</small>
                                 </div>
                                 <div style="text-align:center;">
-                                    <b style="font-size: 1.2em; color:#c0392b;">$${parseFloat(rep.avance_financiero_periodo).toLocaleString('es-MX')}</b><br><small>Gasto</small>
+                                    <b style="font-size: 1.2em; color:#c0392b;">${fmt(dinero(rep.avance_financiero_periodo))}</b><br><small>Gasto</small>
                                 </div>
                             </div>
                             <div style="background: white; padding: 10px; border-radius: 5px; border-left: 3px solid #3E6257; margin-bottom:10px;">
